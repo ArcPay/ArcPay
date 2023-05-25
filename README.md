@@ -1,5 +1,15 @@
 # Altitude
 
+Altitude is a payment validium with a fully trustless escape hatch. Users hold proofs that let them claim their coins during shutdown without relying on any external party. This enables arbitrary scaling with near L1 level security.
+
+During shutdown, users have a month to prove ownership of their tokens. Newer proofs invalidate older proofs for the same tokens and every token is numbered. To get full self custody of their tokens, users need an ownership proof from the operator.
+
+During normal operation, censorship resistance is guaranteed by onchain forcing. Users can force the operator to include their transaction, or return an ownership proof, and the operator must respond or their stake is slashed and the validium is shut down. The operator should address users' needs offchain to avoid gas costs. The operator is slashed if they don't regularly update the state.
+
+Promises from the operator are a form of instant payment. If the promise is broken the operator is slashed. A user can show a promise was broken using an ownership proof. Promises don't have trustless finality because the validum could shut down. Finality happens when the user has an ownership proof for a state root that is finalised on L1.
+
+## Background
+
 Payments are a huge market that, if conquered, could make Eth a true money. Visa alone settles over [\$1T per month](https://bit.ly/3p5Q7pL). By using cryptoeconomics instead of underwriting transactions, we can undercut existing payment providers, while offering far stronger security to users.
 
 Recently, L2s have been built on top of blockchains to minimse fees while inheriting security from the underlying blockchain. Strong L2s, like rollups with onchain calldata are limited by Ethereum's data throughput. Only state channel networks and rollups with DA (data availability) proofs currently allow arbitrary data scaling, which is necessary for low fees, but both make substantial security tradeoffs. We present a new L2 called Altitude, which combines their benefits.
@@ -14,19 +24,9 @@ Recently, L2s have been built on top of blockchains to minimse fees while inheri
 
 <sup>*assuming the L2 doesn't shut down</sup>
 
-## Abstract
-
-Altitude is a payment validium with a fully trustless escape hatch. Users hold proofs that let them claim their coins during shutdown without relying on any external party. This enables arbitrary scaling with near L1 level security.
-
-During shutdown, users have a month to prove ownership of their tokens. Newer proofs invalidate older proofs for the same tokens and every token is numbered. To get full self custody of their tokens, users need an ownership proof from the operator.
-
-During normal operation, censorship resistance is guaranteed by onchain forcing. Users can force the operator to include their transaction, or return an ownership proof, and the operator must respond or their stake is slashed and the validium is shut down. The operator should address users' needs offchain to avoid gas costs. The operator is slashed if they don't regularly update the state.
-
-Promises from the operator are a form of instant payment. If the promise is broken the operator is slashed. A user can show a promise was broken using an ownership proof. Promises don't have trustless finality because the validum could shut down. Finality happens when the user has an ownership proof for a state root that is finalised on L1.
-
 # Shutdown
 
-The validium has to follow a variety of rules during normal operation to ensure censorship resistance and safety. If it violates any of these rules the validium is shut down. Shutdown freezes the state, fully slashes the operator's stake, and initiates the shutdown sequence.
+Altitude has to follow a variety of rules during normal operation to ensure censorship resistance and safety. If it violates any of these rules the validium is shut down. Shutdown freezes the state, fully slashes the operator's stake, and initiates the shutdown sequence.
 
 ## Escape Hatch
 
