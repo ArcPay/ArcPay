@@ -1,10 +1,10 @@
-# Payment Rollups
+# Altitude
 
 Payments are a huge market that, if conquered, could make Eth a true money. Visa alone settles over [\$1T per month](https://bit.ly/3p5Q7pL). By using cryptoeconomics instead of underwriting transactions, we can undercut existing payment providers, while offering far stronger security to users.
 
-Recently, L2s have been built on top of blockchains to minimse fees while inheriting security from the underlying blockchain. Strong L2s, like rollups with onchain calldata are limited by Ethereum's data throughput. Only state channel networks and rollups with DA (data availability) proofs currently allow arbitrary data scaling, which is necessary for low fees, but both make substantial security tradeoffs. We present a new type of L2 called a Payment Rollup, which combines their benefits.
+Recently, L2s have been built on top of blockchains to minimse fees while inheriting security from the underlying blockchain. Strong L2s, like rollups with onchain calldata are limited by Ethereum's data throughput. Only state channel networks and rollups with DA (data availability) proofs currently allow arbitrary data scaling, which is necessary for low fees, but both make substantial security tradeoffs. We present a new L2 called Altitude, which combines their benefits.
 
-|                | State Channels    | DA Rollup    | Payment Rollup  |
+|                | State Channels    | DA Rollup    | Altitude        |
 | -----------    | -----------       | -----------  | -----------     |
 | Escape Hatch   | ✅ Individual      | ❌ m-of-n    | ✅ Individual   |
 | Finality       | ✅ Instant         | ❌ L1        | 🦺 Instant*     |
@@ -12,145 +12,129 @@ Recently, L2s have been built on top of blockchains to minimse fees while inheri
 | Payment Limit  | ❌ Channel Balance | ✅ None      | ✅ None         |
 | Theft Checkup  | ❌ ~Daily.         | ✅ Never     | 🦺 ~Monthly     |
 
-<sup>*assuming the rollup keeps running</sup>
+<sup>*assuming the L2 doesn't shut down</sup>
 
 ## Abstract
 
-A payment rollup is a ZK rollup with a centralised staked sequencer and an escape hatch that only uses self custodial data, rather than relying on L1 calldata or a DA committee to rebuild the state. It uses a UTXO model where every token is labelled and doesn't (currently) support private transactions.
+Altitude is a payment validium with a fully trustless escape hatch. Users hold proofs that let them claim their coins during shutdown without relying on any external party. This enables arbitrary scaling with near L1 level security.
 
-[Instant payments](#Instant-Payments) are achieved with promises from the sequencer. Censorship resistance is achieved with a `force_include` function. If it doesn't update the state or make good on a promise the sequencer is slashed and the rollup goes into shutdown.
+During shutdown, users have a month to prove ownership of their tokens. Newer proofs invalidate older proofs for the same tokens and every token is numbered. To get full self custody of their tokens, users need an ownership proof from the operator.
 
-[Data scaling](#Data-Scaling) is achieved with an optimistic escape hatch. During shutdown, users have a month to prove ownership of their tokens. Newer proofs invalidate older proofs for the same tokens. To get full self custody of their tokens, users can force the sequencer to provide proof of ownership with a similar mechanism to `force_include`.
+During normal operation, censorship resistance is guaranteed by onchain forcing. Users can force the operator to include their transaction, or return an ownership proof, and the operator must respond or their stake is slashed and the validium is shut down. The operator should address users' needs offchain to avoid gas costs. The operator is slashed if they don't regularly update the state.
 
-Instant finality depends on the sequencer not being slashed. True finality happens when the user has an ownership proof for a state root that has reached L1 finality.
+Promises from the operator are a form of instant payment. If the promise is broken the operator is slashed. A user can show a promise was broken using an ownership proof. Promises don't have trustless finality because the validum could shut down. Finality happens when the user has an ownership proof for a state root that is finalised on L1.
 
-During normal operation, users can reshuffle their tokens to maintain a single ownership proof for all their funds. Tokens are points in an high dimensional space so that shuffling can work around inactive users. A special shuffle tx type keeps the old proofs valid until all shuffled users sign their new proofs.
+# Shutdown
 
-# Details
+The validium has to follow a variety of rules during normal operation to ensure censorship resistance and safety. If it violates any of these rules the validium is shut down. Shutdown freezes the state, fully slashes the operator's stake, and initiates the shutdown sequence.
+
+## Escape Hatch
+
+An escape hatch is a method of retrieving money from a system that has shut down. In Altitude, the escape hatch is trustless - users don't have to trust anyone to keep their money safe.
+
+### Ownership Proofs
+
+Validiums use onchain proofs and state roots to prove that offchain computation is done correctly. Altitude's state is a Merkle tree of UTXOs. To update the state, the operator must provide a ZKP that takes the old state root, validates and applies a set of transactions, and outputs the new state.
+
+State roots are stored onchain and are available even if the validium shuts down. Ownership proofs are Merkle proofs for data in the UTXO tree. So the chain can verify claims like "X owned Y coins at time t."
+
+### Claiming and Resolution
+
+Once the rollup is shutdown, users have one month to claim their coins. Users post the whole ownership proof as calldata to the claiming contract, which just adds the proof to a cheap accumulator like a [binary hash chain](https://en.wikipedia.org/wiki/Hash_chain#Binary_hash_chains) to minimise gas costs. Once the claiming period is over, a resolver posts a ZKP which addresses every ownership proof in the accumulator, checking that the Merkle proof is valid, the state root is real, and resolving any conflicting claims. In case of a conflict, the later owner wins. The resolver ZKP simply posts the root of all the owners, who can now retrieve their money when they want.
+
+Anyone can be a resolver, as the resolution proof can be constructed from onchain data. The resolver is paid a small fee for their efforts. The fee increases gradually over time to ensure that resolution eventually happens at a minimal cost.
+
+### Scalable Claiming
+
+Individually claiming each set of coins doesn't work at scale because the cost to retrieve each is quite high, and the gas price would spike. This makes the "trustless escape hatch" a fairly empty promise. Several solutions are discussed [here](https://hackmd.io/FYaYOZfQQr-Urw-c_KORrg), and the ultimate solution involves shuffling and escape pods. Escape pods are a way for users in a contiguous area to claim their coins together, and shuffling is a way to force the operator to tidy a particular set of coins into a particular area.
+
+However, this both shuffling and escape pods are quite complex, and will not be implemented in version 1. Users of version 1 should be aware of this risk and act accordingly (by maintaining tidy worhtwhile claims, or not holding much money in the system). Since it's not really trustless, version 1 relies somewhat on the benevolence and competence of the operator not to shut down, or to at least shut down gracefully.
+
+## Graceful Shutdown
+
+### Averting the Claim Game
+
+If the operator is found to be in violation of their responsibilities and the validium is shut down, the operator has a period before claiming to gracefully shut down. The operator provides a proof of all the owners in the final state, and sends them their money. The operator is still slashed, but that slashed money can be put towards gas costs for distributing the tokens. This avoids the expensive and error prone claiming process.
+
+### Upgrades
+
+The smart contracts forming Altitude are not upgradable for security reasons. However, after a notice period, the operator can move the money and state to an entirely different set of contracts. First the operator deploys the v2 contracts with no restrictions, then the operator can specify an upgrade date several months in the future along with the v2 contract address. When the upgrade date arrives, the remaining money in v1 is sent to v2 via L1, and the final state of v1 is read by v2.
+
+Even if an upgrade is planned, the validium can go into shutdown which cancels the upgrade. This form of upgradability doesn't require any additional vigilance by users, as they already have to check the chain monthly. It's prudent to make the minimum notice period several months to allow the new contracts to be widely audited and let people exit v1 gradually. This form of upgrades is not good for time sensitive upgrades like hotfixing vulnerabilities, as the vulnerability will probably be discovered and exploited by an attacker during the notice period.
+
+# Normal Operation
+
+The operator is subject to several rules during normal operation that enable censorship resistance, instant transactions, and the trustless escape hatch. . Namely, the operator:
+
+- Must include onchain transactions
+- Must honour promises to include transactions
+- Must consistently update the state
+- Must return ownership proofs
+
+If these rules are broken, the validium is shutdown and users retrieve their money [as explained above](#Shutdown).
 
 ## Instant Payments
 
 ### Forced Inclusion
 
-Having a centralised sequencer is crucial for instant transactions. To make promises about future payments, the sequencer needs to know the future state in advance without worrying about users altering it. However, users need to be able to send transactions permisionlessly to circumvent censorship by the sequencer.
+Having a centralised operator is crucial for instant transactions. To make promises about future payments, the operator needs to know the future state in advance without worrying about others altering it. However, users need to be able to send transactions permisionlessly to circumvent censorship by the operator.
 
-Often rollups achieve censorship resistance by decentralising the sequencer, but since we need a centralised sequencer we need to rely on `force_include`. Forced transactions are "locked in" onchain for a few blocks before they're included so the sequencer can read them before making promises about the future state. The sequencer must prove they included all forced transactions to update the state.
+Some rollups implement censorship resistance by decentralising the operator, but we need a centralised operator for instant transactions and data scaling. Some rollups use privacy to make targetted censorship impossible. While privacy [may be possible](https://hackmd.io/5FJzfDgJS3OT0RmwOmbfqQ) for Altitude, it is quite complex. Instead, we rely on `force_include`. Forced transactions are "locked in" onchain for a few blocks before they're included so the operator can read them before making promises about the future state. The operator must prove they've included all forced transactions to update the state.
 
 <figure>
   <img src="https://i.imgur.com/wT2pNnS.jpg" alt="Diagram that resembles livestock pen illustrating how transactions are held in containers until they're included.">
-  <figcaption><em>Initially, the sequencer can make promises about blocks <code>n</code> and <code>n+1</code>. After proving the state transition for block <code>n</code>, they can make promises about blocks <code>n+1</code> and <code>n+2</code>.</em></figcaption>
+  <figcaption><em>Initially, the operator can make promises about blocks <code>n</code> and <code>n+1</code>. After proving the state transition for block <code>n</code>, they can make promises about blocks <code>n+1</code> and <code>n+2</code>.</em></figcaption>
 </figure>
 
-If the sequencer refuses to update the state they are slashed for their entire stake. When the sequencer is slashed we disable deposits and L2->L2 payments, freeze the state, and let people withdraw their funds with the exit game [described below](#Data-Scaling). This achieves trustlessness and self-sovereignty in the sense that we can always force any transaction we like while the sequencer is operating, and when the sequencer fails, we can always return our funds to the ~trustless L1.
+If the operator refuses to update the state they are slashed for their entire stake. This achieves censorship resistance in that, during normal operation, users can force any transaction regardless of how much the operator doesn't want to include it. In the worst case, the operator can choose to shut down the validium to censor the transaction, but the user can still return their funds to the ~trustless L1.
 
 ### Offchain Payments
 
-We use the onchain queue if the sequencer is censoring us, but in the cooperative case we simply send the transaction to the sequencer offchain, who includes it in the next state, skipping the queue.
+We use the onchain queue if the operator is censoring us, but in the cooperative case we send the transaction to the operator offchain, who includes it in the next state, skipping the queue.
 
-Due to locking in `force_include`, the sequencer can calculate the state up to `k` blocks in the future. Therefore, the sequencer can promise to execute unforced transactions without fear that the user will invalidate them by forcing a double spend. That means the sequencer can safely risk their entire stake on a promise like "Bob will have tokens 1-100 in block 10."
+Due to locking in `force_include`, the operator can calculate the state up to `k` blocks in the future. Therefore, the operator can promise to execute unforced transactions without fear that the user will invalidate them by forcing a double spend. That means the operator can safely risk their entire stake on a promise like "Bob will have tokens 1-100 in block 10."
 
-Suppose Alice is buying an orange from Bob. She sends her transaction directly to the sequencer, who signs it, promising that the tokens will go to Bob in block `X`. This is called the receipt. Alice gives the receipt to Bob, who takes it as a strong guarantee of payment, and gives the orange to Alice.
+Suppose Alice is buying an orange from Bob. She sends her transaction directly to the operator, who signs it, promising that the tokens will go to Bob in block `123`. This is called the receipt. Alice gives the receipt to Bob, who takes it as a strong guarantee of payment, and gives the orange to Alice.
 
 ![](https://i.imgur.com/EtxFtM9.jpg)
 
 
 
 
-Bob holds on to the receipt until block `X`, when he asks the sequencer to prove that his tokens are included. If the sequencer doesn't respond, he takes the receipt onchain, and if the prover can't prove that he tokens are included, the sequencer is slashed and Bob earns a reward. To prove that the promise was fulfilled, the sequencer provides an [escape pod ticket](#Escape-Pods), which Bob holds in case the rollup shuts down.
+Bob holds on to the receipt until block `123`, when he asks the operator to prove that his tokens are included. If the operator doesn't respond, he takes the receipt onchain, and if the prover can't prove that he tokens are included, the operator is slashed and Bob earns a reward. To prove that the promise was fulfilled, the operator provides an [ownership proof](#Ownership-Proofs), which Bob holds in case the validium shuts down.
 
 ![](https://i.imgur.com/JV9DBUA.jpg)
 
-### Lazy Sequencer
+<!-- TODO: try add a symbol for a Merkle proof beside the proof -->
 
-The sequencer is given a cut of each offchain payment to incentivise them to confirm offchain transactions. However, if Alice simply signs a TX giving Bob 99% and the sequencer 1%, then the sequencer is instantly certain that they will recieve their cut, and have no incentive to return the signed receipt. Remember, the signed receipt is essential to prove to Bob that the transaction will be complete.
+## Finality guarantees
 
-Instead, we implement a simple game between Alice and sequencer. Alice sends a TX giving 98% to Bob, and burning 2%. This TX has the special property that it can be converted to a new TX giving 98% to Bob, 1% to the sequencer and 1% back to Alice, as long as the sequencer and Alice mutually agree. So, in order to earn their fee, the sequencer signs the receipt and sends it to Alice. Then Alice signs it to get her cut back, and sends it back to the sequencer. Now Alice has a receipt that she can send to Bob proving that the transaction will go through.
+Soft finality is when we can be sure that a transaction will be included assuming that the validium doesn't shut down. Trustless finality is when we know the outputs of a transaction can be retrived regardless of how the operator or anyone else acts.
 
-[TODO]: <> (diagram of messages between Alice, Bob, and the Sequencer)
+### Cooperative
 
-Note, Alice could spite the sequencer and force them to include the transaction while not being paid their fee, but that would cost her 1% of the original transcation, and it's unlikely that many users would do that. This is more problematic for a rollup with onchain calldata, as the Sequencer pays a non-negligible gas cost to include a transaction, and could be forced to make a loss.
+<!-- TODO: draw diagrams for these -->
 
-This game can be enforced within the rollup's state transition function (i.e., in the circuit for a ZK rollup). We do this by having only 3 valid kinds of transactions:
- - Any transaction from the queue
- - Queue skipping transactions that burn 2%
- - Queue skipping transactions that would have burned 2%, but mutually decided to split the 2% between the sender and sequencer
-
-## Data Scaling
-
-The conventional method to scale data for rollups is with DA sampling. This introduces a an additional m-of-n security assumption to withdraw funds. This may be the best solution for a Turing complete, VM-based rollup, because you may need the whole state to prove ownership of your funds. However, for the payments rollup described below, a user can simply use their receipts to prove ownership, while only relying on L1.
-
-### UTXO Payment Rollups
-
-[The UTXO model](TODO), popularised by Bitcoin, is a model for digital currencies. Valid tokens are called UTXOs (unspent transaction outputs), are they can either be minted (i.e., by mining), or created by spending previous UTXOs.
-
-[::]: <> (TODO: show a diagram of the UTXO model)
-
-We can succinctly represent the state of a UTXO payment rollup as two Merkle trees. The first tree contains transactions, the second contains spent transactions. To make a payment, you must prove that you have a transaction in the transaction tree that *isn't* in the spent transaction tree, then the two trees are updated accordingly.
-
-[::]: <> (TODO: diagram of the two tree model)
-
-This is a reasonable model for our scaled rollup. To update the state, the sequencer posts the states of both trees (probably hashed together to save gas), and a ZK proof showing that it applied valid transactions to create some new state.
-
-However, these Merkle trees are insufficient as an escape hatch. In order to make a withdrawl, the user would have to prove membership in the transaction tree, and non-membership in the spent transaction tree. The problem is that the roots change as transactions are processed, and earlier Merkle proofs are invalidated. This is a particularly big problem for non-membership in the spent transaction tree.
-
-There is a generalisation of Merkle trees called [accumulators](TODO). [Some accumulators](https://eprint.iacr.org/2020/777.pdf) allow us to all update our proofs with the same data, but due to a [well known impossibility result](TODO) the amount of data required for this is linear in the number of changes. To achieve arbitrary scaling with this method we'd have to make that data available, probably through a data availability committee, which defeats the purpose of this construction.
-
-### Escape Pods
-
-To add an escape hatch to the two tree model, we use escape pods. Escape pods are simply the Merkle root of all the valid transactions in the current block. When Bob's transaction is included in a block, he asks the server for a proof that his transaction is in the escape pod, we call this a ticket of the escape pod. When the rollup shuts down, he uses his ticket to claim his funds, which are given to him once everyone has the chance to make their claims.
-
-If the server doesn't give Bob his ticket, he can go into an onchain queue to request it by using his receipt. If the sequencer doesn't provide a correct ticket in time, they are slashed. Additional complex game theoretic mechanisms could be added where the sequencer earns a fee for each ticket, but the simple queue mechanism is probably sufficient: the Sequencer should simply address the ticket request offchain, to alleviate the threat of having to pay gas costs to dequeue it.
-
-### LoW (Lots of Wei)
-
-What if I get an escape pod ticket, then I spend my tokens? This means I'm able to claim spent tokens! What if I spend tokens to an address I own and get tickets for both? Then I'd be able to double-spend by withdrawing both the same token with both tickets.
-
-The simple solution, is to number every individual token. Every ticket will specify which particular tokens it claims, and the escape pods will be numbered in time. Tickets for later escape pods will supersede earlier ones, and if I am the latest owner of a token, I know that no one can produce a ticket for a later escape pod than me.
-
-This can be thought of as an alternative to the UTXO model. The balances of all users is represented as an ordered list of tokens and the users who own them. When money is deposited in the rollup, new tokens are minted at the end of the list. When tokens are withdrawn from the rollup, they are added to a Merkle tree of unusable tokens. It's important that the unusable tokens are specified onchain during normal withdrawls, as the list of withdrawn tokens is crucial to prevent double spending during shutdown.
-
-[::]: <> (diagram showing "user x owns tokens 0-154, user y owns tokens 155-800, ..., tokens 1590-1778 are unspendable, ..., total tokens 2999234882")
-
-The LoW model is not as naturally ammenable to efficient data structures like Merkle trees as the UTXO model. But note, we are not particularly compute constrained, as the computation of new updates only needs to be done on a single machine. We do have some limitations because the computation needs to be done as a ZKP, but this is a tractable engineering problem.
-
-One basic idea of how to implement LoW is as a [sparse Merkle tree](TODO). Each entry in the tree is `[start_token, end_token, address]`, and if our rollup can handle `2^256` [wei](TODO) in its lifetime, and Ethereum addresses are 160 bits long, the merkle proofs for normal operation are `256 + 256 + 160 = 672` elements long. This is fine since none of these proofs are ever directly onchain, and with [folding](TODO) or [recursion](TODO) and [SNARK friendly hash functions](TODO) this could be quite efficient. The major cost is probably in verifying traditional ECDSA signatures in the SNARK to prove ownership of coins. For this, we can hopefully use [spartan-ecdsa](TODO).
-
-### Shutdown
-
-Shutdown occurs when the sequencer fails to perform its duties and is slashed. The shutdown period has two phases: claiming, and resolution. The claiming phase lasts long enough for everyone to reasonably claim their funds. Somewhere between 2 weeks and 2 months seems reasonable. During that time, the only action available on the rollup is to add claims to an onchain queue. These claims include the transaction ID, Merkle proof, and escape pod number. An optimised version would use an accumulator with short constant sized proofs for the membership proofs like [KZG](TODO). TODO: is KZG really a constant sized proof, also, since it needs a trusted setup of fixed size, is it acceptable for potentially arbitrary sized escape pods?
-
-During resolution, we determine who owns which tokens and send them to the appropriate people. This can be done in a smart contract, but should probably be done optimistically or in a SNARK. In a SNARK, for example, we would write a circuit that accepts the list of withdrawn funds, the list of escape pods, and the list of claims. The SNARK would output who is owed how much. The contract would verify the SNARK, make sure the inputs to the SNARK match the actual onchain values, then send the funds.
-
-The proving should be decentralised. The simplest way to do this is allow anyone to produce a proof, and give them a small reward. This results in a race scenario, which may waste overall effort, but is simple. To make sure the proof is eventually provided, the reward could gradually increase with the blocknumber.
-
-### Security Assumptions
-
-Let's return to Alice and Bob. What exactly do they know about their funds during their transaction?
-
-#### Finality
-
-Alice signs a transaction and sends it to the sequencer.
-The sequencer returns a receipt signing her transaction.
+Alice signs a transaction and sends it to the operator.
+The operator returns a receipt signing her transaction.
 Alice gives the transaction to Bob.
-*Bob knows that his payment will be included in the next block, assuming the sequencer stays online, and doesn't want to be slashed with the receipt*
+*Bob payment has soft finality*
 Bob waits until the next block of L2 transactions.
-Bob asks the sequencer for a proof that his transaction is included in the most recent escape pod.
-The sequencer returns the proof.
-*Bob knows that he can trustlessly withdraw his funds, no matter what the sequencer does.*
+Bob asks the operator for a proof that his transaction is included in the most recent escape pod.
+The operator returns the proof.
+*Bob's payment has trustless finality*
 
-#### Instantaneity
+### Uncooperative
 
-Alice signs a transaction and sends it to the sequencer.
-The sequencer doesn't reply.
+Alice signs a transaction and sends it to the operator.
+The operator doesn't reply.
 Now, to make sure the transaction goes through Alice uses the onchain queue.
-*By looking at the queue, Bob knows his payment will be in the next block, assuming the sequencer stays online.*
+*Bob's payment has soft finality*
+The payment is eventually included in a block.
+Bob asks the operator for an ownership proof.
+The operator doesn't respond.
+Bob requests an ownership proof onchain.
+The operator responds onchain.
+*Bob's payment has trustless finality.*
 
-So there is no guarantee of instantaneity. Alice expects an instantaneous response because the sequencer will have to pay gas fees to respond to an onchain queue. The fallback is confirmed at the speed of a normal L1 transaction.
-
-### Graceful Shutdown
-
-If the rollup is no longer profitable, or there is a far more efficient new design it would be useful to shut the rollup down safely. The exit game puts a lot of responsibilty on users to hold onto their receipts and make the appropriate claims. It's likely that some users will not recieve all the funds they're owed - perhaps they forgot about them, or they were on a long holiday during the claiming period etc.
-
-Instead, there should be a function that lets the sequencer return all funds to their original owners on L1. This should not be immediately callable, as it breaks assumptions about instantaneity. Instead, the sequencer should have to declare shutdown well in advance, so that people have time to disable payments in their stores etc and move to the newer system.
-
-This is essentially an upgrade mechanism that allows fully static and reliable contracts.
+Note, the uncooperative case does not have instant payments. Alice expects an instantaneous response because the operator will have to pay gas fees to respond to an onchain queue. The fallback requires several L1 transactions, making it slower than L1.
