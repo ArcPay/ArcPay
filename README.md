@@ -46,7 +46,7 @@ Anyone can be a resolver, as the resolution proof can be constructed from onchai
 
 ### Scalable Claiming
 
-Individually claiming each set of coins doesn't work at scale because the cost to retrieve each is quite high, and the gas price would spike. This makes the "trustless escape hatch" a fairly empty promise. Several solutions are discussed [here](https://hackmd.io/FYaYOZfQQr-Urw-c_KORrg), and the ultimate solution involves shuffling and escape pods. Escape pods are a way for users in a contiguous area to claim their coins together, and shuffling is a way to force the operator to tidy a particular set of coins into a particular area.
+Individually claiming each set of coins doesn't work at scale because the cost to retrieve each is quite high, and the gas price would spike. This makes the "trustless escape hatch" a fairly empty promise. Several solutions are discussed [here](https://hackmd.io/FYaYOZfQQr-Urw-c_KORrg), and the ultimate solution involves shuffling and escape pods. Escape pods are a way for users in a contiguous area to claim their coins together, and shuffling is a way to force the operator to tidy a particular set of coins into a contiguous area.
 
 However, this both shuffling and escape pods are quite complex, and will not be implemented in version 1. Users of version 1 should be aware of this risk and act accordingly (by maintaining tidy worhtwhile claims, or not holding much money in the system). Since it's not really trustless, version 1 relies somewhat on the benevolence and competence of the operator not to shut down, or to at least shut down gracefully.
 
