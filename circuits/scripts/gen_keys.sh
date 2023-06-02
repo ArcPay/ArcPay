@@ -79,6 +79,7 @@ else
 fi
 
 # Outputs calldata for the verifier contract.
+# TODO specify BLOCK_PROOF_DIR
 echo "****GENERATING CALLDATA FOR VERIFIER CONTRACT****"
 start=`date +%s`
 snarkjs zkey export soliditycalldata $BLOCK_PROOF_DIR/public.json "$BLOCK_PROOF_DIR"/proof.json > "$BLOCK_PROOF_DIR"/calldata.txt
