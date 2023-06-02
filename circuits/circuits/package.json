@@ -1,0 +1,13 @@
+{
+  "name": "altitude",
+  "license": "GPL-3.0",
+  "version": "0.0.1",
+  "description": "P2P payments",
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "snarkjs": "^0.7.0"
+  },
+  "scripts": {
+    "postinstall": "./trusted_setup_install.sh"
+  }
+}
