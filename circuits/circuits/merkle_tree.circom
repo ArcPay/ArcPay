@@ -2,17 +2,6 @@ pragma circom 2.0.2;
 
 include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider Poseidon2
 
-template HashLeftRight() {
-    signal input left;
-    signal input right;
-    signal output hash;
-
-    component poseidon = Poseidon(2);
-    poseidon.inputs[0] <== left;
-    poseidon.inputs[1] <== right;
-    hash <== poseidon.out;
-}
-
 // if s == 0 returns [in[0], in[1]]
 // if s == 1 returns [in[1], in[0]]
 template DualMux() {
@@ -42,9 +31,9 @@ template MerkleTreeChecker(levels) {
         selectors[i].in[1] <== pathElements[i];
         selectors[i].s <== pathIndices[i];
 
-        hashers[i] = HashLeftRight();
-        hashers[i].left <== selectors[i].out[0];
-        hashers[i].right <== selectors[i].out[1];
+        hashers[i] = Poseidon(2);
+        hashers[i].in[0] <== selectors[i].out[0];
+        hashers[i].in[1] <== selectors[i].out[1];
     }
 
     root === hashers[levels - 1].hash;
