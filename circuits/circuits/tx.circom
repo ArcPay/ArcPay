@@ -4,25 +4,54 @@ include "merkle_tree.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 
-template handle_transaction() {
-    // TODO: branch on whether to send, mint, or withdraw
+// Top level transaction handler
+// 
+// If the sender is the 0 address, the transaction is a mint request,
+// if the recipient is 0, the transaction is a withdrawal, if neither are
+// 0 it's an L2->L2 send, and both can't be 0.
+template HandleTransaction() {
+    signal input sender;
+    signal input recipient;
+    signal input initial_root;
+
+    signal output new_root;
+
+    component is_mint = IsZero();
+    is_mint.in <== sender;
+
+    component is_withdrawal = IsZero();
+    is_withdrawal.in <== recipient;
+
+    // Make sure that at least one address is non-zero
+    is_mint.out * is_withdrawal.out === 0;
+
+    component mint = Mint(); // TODO: set inputs
+    component withdrawal = Withdraw(); // TODO: set inputs
+    component send = Send(); // TODO: set inputs
+
+    // Set the new root based on the transaction type
+    // By default the new root is send's output, but this is overridden if the transaction was a mint or withdrawal
+    signal intermediate_root <== (mint.new_root - send.new_root) * is_mint.out + send.new_root;
+    signal new_root <== (withdrawal.new_root - intermediate_root) * is_withdrawal.out + intermediate_root;
 }
 
-template send() {
+template Send() {
     // public inputs
     signal initial_root;
     signal highest_coin;
 
     // private inputs
+    // tx
     signal input sender;
     signal input recipient;
-    signal input start_coin;
-    signal input end_coin;
+    signal input sent_coins[2];
+    signal input signature;
 
-    signal input leaf;
+    // state
+    signal input owner;
+    signal input leaf_coins[2];
     signal input pathElements[levels];
     signal input pathIndices[levels];
-    signal input signature;
 
     signal output new_root;
 
@@ -55,13 +84,13 @@ template send() {
     signal next_root = 0; // TODO
 
     // If the transaction was valid output next_root, otherwise output the initial_root
-    (next_root - initial_root) * transaction_is_valid  + initial_root === new_root;
+    new_root <== (next_root - initial_root) * transaction_is_valid  + initial_root;
 }
 
-template mint() {
+template Mint() {
     // TODO: check incoming mint list
 }
 
-template withdraw() {
+template Withdraw() {
     // TODO: check signature
 }
