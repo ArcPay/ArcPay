@@ -78,13 +78,13 @@ template Validate() {
     leaf.in[1] <== leaf_coins[0];
     leaf.in[2] <== leaf_coins[1];
 
-    component mtc MerkleTreeChecker(levels);
-    mtc.leaf <== leaf;
+    component merkle_proof_checker CheckMerkleProof(levels);
+    merkle_proof_checker.leaf <== leaf;
     for (var i = 0; i < levels; i++) {
-        mtc.pathElements[i] <== pathElements[i];
-        mtc.pathIndices[i] <== pathIndices[i];
+        merkle_proof_checker.pathElements[i] <== pathElements[i];
+        merkle_proof_checker.pathIndices[i] <== pathIndices[i];
     }
-    mtc.root === initial_root;
+    merkle_proof_checker.root === initial_root;
 
     // Require overlap between leaf coins and sent coins, if the sent coins are valid
     component coin_ranges_overlap = CoinRangesOverlap();
