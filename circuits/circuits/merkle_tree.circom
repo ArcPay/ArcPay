@@ -16,11 +16,12 @@ template DualMux() {
 
 // Verifies that merkle proof is correct for given merkle root and a leaf
 // pathIndices input is an array of 0/1 selectors telling whether given pathElement is on the left or right side of merkle path
-template MerkleTreeChecker(levels) {
+// Note: this outputs a Merkle root, but doesn't check it against anything - that must be done by the caller
+template EvaluateMerkleProof(levels) {
     signal input leaf;
-    signal input root;
     signal input pathElements[levels];
     signal input pathIndices[levels];
+    signal output root;
 
     component selectors[levels];
     component hashers[levels];
@@ -36,5 +37,5 @@ template MerkleTreeChecker(levels) {
         hashers[i].in[1] <== selectors[i].out[1];
     }
 
-    root === hashers[levels - 1].hash;
+    root <== hashers[levels - 1].hash;
 }
