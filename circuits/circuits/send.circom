@@ -1,10 +1,13 @@
 pragma circom 2.1.5;
 
-include "merkle_tree.circom";
+include "./merkle_tree.circom";
+include "./sig.circom";
+include "./efficient_ecdsa/circom-ecdsa-circuits/ecdsa.circom";
+include "./efficient_ecdsa/circom-ecdsa-circuits/zk-identity/eth.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
-template Send(levels) {
+template Send(levels, n, k) {
     signal input sender;
     signal input recipient;
     signal input initial_root;
@@ -21,6 +24,25 @@ template Send(levels) {
     signal input pathIndicesForZero[levels];
 
     signal output new_root;
+
+    // signature verification.
+    {
+        // TODO: ensure in smart contract's force_include() fn that signature is valid, otherwise revert.
+        signal input r[k];
+        signal input s[k];
+        signal input msghash[k];
+        signal input pubkey[2][k];
+        // signature verification.
+        VerifySignature(n, k)(
+            r <== r,
+            s <== s,
+            msghash <== msghash,
+            pubkey <== pubkey,
+            leaf_coins <== leaf_coins,
+            receiver <== recipient,
+            signer <== sender
+        );
+    }
 
     // make sure it's a send request by checking sender and recipient is non-zero
     {
@@ -79,7 +101,6 @@ template Send(levels) {
 }
 
 // A send transaction is invalid if:
-// - The signature is invalid, or;
 // - The coin range is out of order, or;
 // - The coin range is out of bounds, or;
 // - The signer doesn't own the coins they're trying to send
@@ -101,8 +122,6 @@ template Validate(levels) {
 
 
     signal output is_send_valid;
-
-    signal is_signature_valid === 1; // TODO: ensure in smart contract's force_include() fn that signature is valid, otherwise revert.
 
     {
         // Signals used in LessThan need to be range checked to avoid a subtle overflow bug demonstrated here https://github.com/BlakeMScurr/comparator-overflow
@@ -169,4 +188,4 @@ template MultiAND(n) {
 */
 
 // TODO: decide on the public inputs.
-component main = Send(3);
+component main = Send(3, 64, 4);
