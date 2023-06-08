@@ -38,7 +38,7 @@ template Withdraw(levels) {
         pathIndices <== pathIndices
     );
 
-    new_root <== (initial_root - root_with_deleted_leaf) * (1 - is_roots_equal) + root_with_deleted_leaf;
+    new_root <== initial_root + is_roots_equal*(root_with_deleted_leaf - initial_root);
 }
 
 // TODO: decide on the public inputs.
