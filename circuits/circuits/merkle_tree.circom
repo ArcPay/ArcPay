@@ -1,17 +1,6 @@
-pragma circom 2.0.2;
+pragma circom 2.1.5;
 
 include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider Poseidon2
-
-template HashLeftRight() {
-    signal input left;
-    signal input right;
-    signal output hash;
-
-    component poseidon = Poseidon(2);
-    poseidon.inputs[0] <== left;
-    poseidon.inputs[1] <== right;
-    hash <== poseidon.out;
-}
 
 // if s == 0 returns [in[0], in[1]]
 // if s == 1 returns [in[1], in[0]]
@@ -27,11 +16,12 @@ template DualMux() {
 
 // Verifies that merkle proof is correct for given merkle root and a leaf
 // pathIndices input is an array of 0/1 selectors telling whether given pathElement is on the left or right side of merkle path
-template MerkleTreeChecker(levels) {
+// Note: this outputs a Merkle root, but doesn't check it against anything - that must be done by the caller
+template CheckMerkleProof(levels) {
     signal input leaf;
-    signal input root;
     signal input pathElements[levels];
     signal input pathIndices[levels];
+    signal output root;
 
     component selectors[levels];
     component hashers[levels];
@@ -42,10 +32,35 @@ template MerkleTreeChecker(levels) {
         selectors[i].in[1] <== pathElements[i];
         selectors[i].s <== pathIndices[i];
 
-        hashers[i] = HashLeftRight();
-        hashers[i].left <== selectors[i].out[0];
-        hashers[i].right <== selectors[i].out[1];
+        hashers[i] = Poseidon(2);
+        hashers[i].in[0] <== selectors[i].out[0];
+        hashers[i].in[1] <== selectors[i].out[1];
     }
 
-    root === hashers[levels - 1].hash;
+    root <== hashers[levels - 1].hash;
+}
+
+template UpdateLeaf(levels) {
+    signal input old_leaf;
+    signal input new_leaf;
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
+    signal input old_root;
+    signal output new_root;
+
+    component mpcs[2];
+    for (var i = 0; i < 2; i++) {
+        mpcs[i] = CheckMerkleProof(levels);
+        for (var j = 0; j < levels; j++) {
+            mpcs[i].pathElements[j] <== pathElements[j];
+            mpcs[i].pathIndices[j] <== pathIndices[j];
+        }
+    }
+    // Makes sure the old leaf was in the old root at the specified position
+    mpcs[0].leaf <== old_leaf;
+    mpcs.root === old_root;
+
+    // Makes sure the new leaf is in the new root at the specified position with no other elements in the tree changed
+    mpcs[1].leaf <== new_leaf;
+    new_root <== mpcs[1].root;
 }
