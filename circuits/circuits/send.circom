@@ -1,15 +1,25 @@
-pragma circom 2.0.2;
+pragma circom 2.1.15;
 
 include "merkle_tree.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 template Send(levels) {
+    signal input sender;
+    signal input recipient;
+    signal input initial_root;
+
+    signal output new_root;
+
+    // make sure it's a send request by checking sender and recipient is non-zero
+    IsZero(in <== sender) === 0;
+    IsZero(in <== recipient) === 0;
+
     // To process a transaction we:
     // - Delete the old leaf
     // - Insert up to 3 new leaves
     // - Merge up to 3 adjacent new leaves
-    // 
+    //
     // We then output the new root from the circuit
     component transaction_is_valid = Validate();
 
@@ -144,7 +154,7 @@ template CoinRangesOverlap() {
     signal output out;
 
     // If the two ranges overlap, then the higher of the two lower bounds will be in both ranges
-    signal common_coin <-- a[0] > b[0] ? a[0] : b[0]; 
+    signal common_coin <-- a[0] > b[0] ? a[0] : b[0];
     component overlap_checks[4];
     for (var i = 0; i < 4; i++) {
         overlap_checks[i] = LessEqThan(128);
