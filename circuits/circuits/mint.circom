@@ -15,5 +15,6 @@ template Mint(levels) {
 
     // make sure it's a mint request by checking sender is zero and recipient is non-zero.
     sender === 0;
-    IsZero(in <== recipient) === 0;
+    signal is_recipient_zero <== IsZero(in <== recipient);
+    is_recipient_zero === 0;
 }

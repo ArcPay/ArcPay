@@ -12,8 +12,10 @@ template Send(levels) {
     signal output new_root;
 
     // make sure it's a send request by checking sender and recipient is non-zero
-    IsZero(in <== sender) === 0;
-    IsZero(in <== recipient) === 0;
+    signal is_sender_zero = IsZero(in <== sender);
+    is_sender_zero === 0;
+    signal is_recipient_zero = IsZero(in <== recipient);
+    is_recipient_zero === 0;
 
     // To process a transaction we:
     // - Delete the old leaf

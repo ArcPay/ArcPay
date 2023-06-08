@@ -18,12 +18,34 @@ set -e
 PHASE1=../circuits/powers_of_tau/powersOfTau28_hez_final_14.ptau
 
 # Relevant directories.
-BUILD_DIR=../circuits/out
+BUILD_DIR=../circuits/build
 COMPILED_DIR=$BUILD_DIR/compiled_circuit
 TRUSTED_SETUP_DIR=$BUILD_DIR/trusted_setup
 
-CIRCUIT_NAME=hash
+PROOF_DIR=../circuits/proof_data
+
+CIRCUIT_NAME=withdraw
 CIRCUIT_PATH=../circuits/$CIRCUIT_NAME
+
+if [ ! -d "$BUILD_DIR" ]; then
+    echo "No build directory found. Creating build directory..."
+    mkdir "$BUILD_DIR"
+fi
+
+if [ ! -d "$COMPILED_DIR" ]; then
+    echo "No compiled directory found. Creating compiled circuit directory..."
+    mkdir "$COMPILED_DIR"
+fi
+
+if [ ! -d "$TRUSTED_SETUP_DIR" ]; then
+    echo "No trusted setup directory found. Creating trusted setup directory..."
+    mkdir "$TRUSTED_SETUP_DIR"
+fi
+
+if [ ! -d "$PROOF_DIR" ]; then
+    echo "No directory found for proof data. Creating a block's proof data directory..."
+    mkdir "$PROOF_DIR"
+fi
 
 if [ ! -f "$COMPILED_DIR"/"$CIRCUIT_NAME".r1cs ]; then
     echo "**** COMPILING CIRCUIT $CIRCUIT_PATH.circom ****"
@@ -35,53 +57,55 @@ if [ ! -f "$COMPILED_DIR"/"$CIRCUIT_NAME".r1cs ]; then
     echo "DONE ($((end-start))s)"
 fi
 
-echo "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey"
-if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey" ]
-then
-    echo generating zkp proving and verifying keys!
-    snarkjs g16s \
-		$COMPILED_DIR/$CIRCUIT_NAME.r1cs \
-		../circuits/powers_of_tau/powersOfTau28_hez_final_14.ptau \
-		$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey -v
-    echo ${CIRCUIT_NAME} groth16 setup complete!
-else
-    echo ${CIRCUIT_NAME} groth16 setup already complete!
-fi
+# COMMENTING FROM HERE FOR COMPILE ONLY PIPELINE
 
-if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey" ]
-then
-    snarkjs zkc \
-		$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey $COMPILED_DIR/${CIRCUIT_NAME}_final.zkey -v \
-		-e='vitaliks simple mixer'
-    echo ${CIRCUIT_NAME} contribution complete!
-else
-    echo ${CIRCUIT_NAME} contribution already complete!
-fi
+# echo "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey"
+# if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey" ]
+# then
+#     echo generating zkp proving and verifying keys!
+#     snarkjs g16s \
+# 		$COMPILED_DIR/$CIRCUIT_NAME.r1cs \
+# 		../circuits/powers_of_tau/powersOfTau28_hez_final_14.ptau \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey -v
+#     echo ${CIRCUIT_NAME} groth16 setup complete!
+# else
+#     echo ${CIRCUIT_NAME} groth16 setup already complete!
+# fi
 
-if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_verifier.json" ]
-then
-    snarkjs zkev \
-		$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey \
-		$COMPILED_DIR/${CIRCUIT_NAME}_verifier.json
-    echo $TARGET verifier json exported!
-else
-    echo $TARGET verifier json already exported!
-fi
+# if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey" ]
+# then
+#     snarkjs zkc \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey $COMPILED_DIR/${CIRCUIT_NAME}_final.zkey -v \
+# 		-e='vitaliks simple mixer'
+#     echo ${CIRCUIT_NAME} contribution complete!
+# else
+#     echo ${CIRCUIT_NAME} contribution already complete!
+# fi
 
-if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_verifier.sol" ]
-then
-	snarkjs zkesv \
-		$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey \
-		$COMPILED_DIR/${CIRCUIT_NAME}_verifier.sol
-    echo $TARGET verifier template contract exported!
-else
-    echo $TARGET verifier template contract already exported!
-fi
+# if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_verifier.json" ]
+# then
+#     snarkjs zkev \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_verifier.json
+#     echo $TARGET verifier json exported!
+# else
+#     echo $TARGET verifier json already exported!
+# fi
 
-# Outputs calldata for the verifier contract.
-# TODO specify BLOCK_PROOF_DIR
-echo "****GENERATING CALLDATA FOR VERIFIER CONTRACT****"
-start=`date +%s`
-snarkjs zkey export soliditycalldata $BLOCK_PROOF_DIR/public.json "$BLOCK_PROOF_DIR"/proof.json > "$BLOCK_PROOF_DIR"/calldata.txt
-end=`date +%s`
-echo "DONE ($((end-start))s)"
+# if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_verifier.sol" ]
+# then
+# 	snarkjs zkesv \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_final.zkey \
+# 		$COMPILED_DIR/${CIRCUIT_NAME}_verifier.sol
+#     echo $TARGET verifier template contract exported!
+# else
+#     echo $TARGET verifier template contract already exported!
+# fi
+
+# # Outputs calldata for the verifier contract.
+# # TODO specify PROOF_DIR
+# echo "****GENERATING CALLDATA FOR VERIFIER CONTRACT****"
+# start=`date +%s`
+# snarkjs zkey export soliditycalldata $PROOF_DIR/public.json "$PROOF_DIR"/proof.json > "$PROOF_DIR"/calldata.txt
+# end=`date +%s`
+# echo "DONE ($((end-start))s)"
