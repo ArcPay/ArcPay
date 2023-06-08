@@ -28,14 +28,18 @@ template Withdraw(levels) {
         pathElements <== pathElements,
         pathIndices <== pathIndices
     );
-    initial_root === initial_root_calculated;
+
+    signal is_roots_equal <== IsEqual()(in <== [initial_root, initial_root_calculated]);
 
     // delete the leaf and compute the new root.
-    new_root <== CheckMerkleProof(levels)(
+    signal root_with_deleted_leaf <== CheckMerkleProof(levels)(
         leaf <== 0,
         pathElements <== pathElements,
         pathIndices <== pathIndices
     );
+
+    new_root <== (initial_root - root_with_deleted_leaf) * (1 - is_roots_equal) + root_with_deleted_leaf;
 }
 
+// TODO: decide on the public inputs.
 component main { public [initial_root] } = Withdraw(3);
