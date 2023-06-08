@@ -1,4 +1,4 @@
-pragma circom 2.1.15;
+pragma circom 2.1.5;
 
 include "merkle_tree.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";

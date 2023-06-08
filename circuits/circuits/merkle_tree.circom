@@ -1,4 +1,4 @@
-pragma circom 2.0.2;
+pragma circom 2.1.5;
 
 include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider Poseidon2
 
