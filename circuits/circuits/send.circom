@@ -34,7 +34,7 @@ template Send(levels) {
     // - Insert 2 new leaves
     //
     // We then output the new root from the circuit
-    signal is_transaction_valid = Validate()(
+    signal is_transaction_valid <== Validate(levels)(
         initial_root <== initial_root,
         highest_coin_to_send <== highest_coin_to_send,
         signature <== signature,
@@ -46,7 +46,7 @@ template Send(levels) {
 
     // determine the new leaf corresponding to sender.
     // If sending all coins, we replace it with 0; otherwise we replace it with the remaining coins.
-    signal is_send_all <== IsEqual(in <== [highest_coin_to_send, leaf_coins[1]]);
+    signal is_send_all <== IsEqual()(in <== [highest_coin_to_send, leaf_coins[1]]);
     signal sender_coin_leaf <== Poseidon(3)(inputs <== [sender, highest_coin_to_send+1, leaf_coins[1]]);
     signal sender_leaf <== (1 - is_send_all) * sender_coin_leaf;
 
@@ -70,7 +70,7 @@ template Send(levels) {
         leaf <== Poseidon(3)(inputs <== [recipient, leaf_coins[0], highest_coin_to_send]),
         pathElements <== pathElementsForZero,
         pathIndices <== pathIndicesForZero
-    )
+    );
 
     // If the transaction was valid output next_root, otherwise output the initial_root
     new_root <== (receive_root - initial_root) * is_transaction_valid + initial_root;
@@ -81,9 +81,9 @@ template Send(levels) {
 // - The coin range is out of order, or;
 // - The coin range is out of bounds, or;
 // - The signer doesn't own the coins they're trying to send
-template Validate() {
+template Validate(levels) {
     // public inputs
-    signal initial_root;
+    signal input initial_root;
 
     // private inputs
     // tx
@@ -106,13 +106,13 @@ template Validate() {
         // Signals used in LessThan need to be range checked to avoid a subtle overflow bug demonstrated here https://github.com/BlakeMScurr/comparator-overflow
         // Note; users must *not* be allowed to force transactions where the coin values exceed 128 bits and therefore don't pass the range check,
         // or they'll be able to halt and break the system. TODO: ensure this is enforced by the smart contracts
-        component coin_range_checks[5];
-        for (var i = 0; i < 5; i++) {
+        component coin_range_checks[3];
+        for (var i = 0; i < 3; i++) {
             coin_range_checks[i] = Num2Bits(128);
         }
-        coin_range_checks[2].in <== highest_coin;
-        coin_range_checks[3].in <== leaf_coins[0];
-        coin_range_checks[4].in <== leaf_coins[1];
+        coin_range_checks[0].in <== highest_coin_to_send;
+        coin_range_checks[1].in <== leaf_coins[0];
+        coin_range_checks[2].in <== leaf_coins[1];
     }
 
     // If the sent coins are valid (i.e., in bounds and in order), then the operator must provide a merkle proof for *some* coins in that range.
@@ -152,15 +152,10 @@ template CoinRangeContains() {
     signal input point;
     signal output out;
 
-    component check_low = LessEqThan(128);
-    check_low[0].in <== superset[0];
-    check_low[1].in <== point;
+    signal is_low <== LessEqThan(128)(in <== [set[0], point]);
+    signal is_high <== GreaterEqThan(128)(in <== [set[1], point]);
 
-    component check_high = GreaterEqThan(128);
-    check_high[0].in <== superset[1];
-    check_high[1].in <== point;
-
-    out <== check_low.out * check_high.out;
+    out <== is_low * is_high;
 }
 
 // Assumes boolean inputs
@@ -176,4 +171,5 @@ template MultiAND(n) {
     out <== IsEqual()(in <== [sum, n]);
 }
 
-template EditTree() {}
+// TODO: decide on the public inputs.
+component main = Send(3);
