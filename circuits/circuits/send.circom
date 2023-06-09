@@ -106,13 +106,13 @@ template Validate(levels) {
         // Signals used in LessThan need to be range checked to avoid a subtle overflow bug demonstrated here https://github.com/BlakeMScurr/comparator-overflow
         // Note; users must *not* be allowed to force transactions where the coin values exceed 128 bits and therefore don't pass the range check,
         // or they'll be able to halt and break the system. TODO: ensure this is enforced by the smart contracts
-        component coin_range_checks[3];
-        for (var i = 0; i < 3; i++) {
+        // highest_coin_to_send is enforced to fit in 128 bits in smart contract.
+        component coin_range_checks[2];
+        for (var i = 0; i < 2; i++) {
             coin_range_checks[i] = Num2Bits(128);
         }
-        coin_range_checks[0].in <== highest_coin_to_send;
-        coin_range_checks[1].in <== leaf_coins[0];
-        coin_range_checks[2].in <== leaf_coins[1];
+        coin_range_checks[0].in <== leaf_coins[0];
+        coin_range_checks[1].in <== leaf_coins[1];
     }
 
     // If the sent coins are valid (i.e., in bounds and in order), then the operator must provide a merkle proof for *some* coins in that range.
