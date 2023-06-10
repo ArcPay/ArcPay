@@ -31,9 +31,9 @@ template Withdraw(levels) {
 
     signal is_roots_equal <== IsEqual()(in <== [initial_root, initial_root_calculated]);
 
-    // delete the leaf and compute the new root.
+    // transfer the ownership of the withdrawn coins to zero address and compute the new root.
     signal root_with_deleted_leaf <== CheckMerkleProof(levels)(
-        leaf <== 0,
+        leaf <== Poseidon(3)(inputs <== [0, leaf_coins[0], leaf_coins[1]]),
         pathElements <== pathElements,
         pathIndices <== pathIndices
     );
