@@ -15,6 +15,7 @@ docs/
 .env
 
 node_modules
+target
 
 circuits/circuits/powers_of_tau
 circuits/circuits/build
