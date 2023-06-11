@@ -45,7 +45,7 @@ template Mint(levels, mintLevels) {
         pathIndices <== mintPathIndices
     );
 
-    // build a new tree by adding leaf to initial_root resulting in new_root.
+    // update the state tree by adding leaf to initial_root resulting in new_root.
     signal initial_root_calculated <== CheckMerkleProof(levels)(
         leaf <== 0,
         pathElements <== pathElements,

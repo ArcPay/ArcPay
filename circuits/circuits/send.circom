@@ -9,6 +9,7 @@ template Send(levels) {
     signal input recipient;
     signal input initial_root;
 
+    signal input owner;
     signal input leaf_coins[2];
     signal input pathElements[levels];
     signal input pathIndices[levels];
@@ -21,8 +22,8 @@ template Send(levels) {
 
     signal output new_root;
 
+    // make sure it's a send request by checking sender and recipient is non-zero
     {
-        // make sure it's a send request by checking sender and recipient is non-zero
         signal is_sender_zero <== IsZero()(in <== sender);
         is_sender_zero === 0;
         signal is_recipient_zero <== IsZero()(in <== recipient);
@@ -38,7 +39,8 @@ template Send(levels) {
         initial_root <== initial_root,
         highest_coin_to_send <== highest_coin_to_send,
         signature <== signature,
-        owner <== sender,
+        sender <== sender,
+        owner <== owner,
         leaf_coins <== leaf_coins,
         pathElements <== pathElements,
         pathIndices <== pathIndices
@@ -89,6 +91,7 @@ template Validate(levels) {
     // tx
     signal input highest_coin_to_send; // sending [leaf_coins[0], highest_coin_to_send]
     signal input signature;
+    signal input sender; // sender is also the signer.
 
     // relevant state
     signal input owner;
@@ -99,8 +102,7 @@ template Validate(levels) {
 
     signal output is_send_valid;
 
-    signal is_signature_valid <== 0; // TODO
-    signal signer <== 0; // TODO: recover signer from signature, or just pass it in as input
+    signal is_signature_valid === 1; // TODO: ensure in smart contract's force_include() fn that signature is valid, otherwise revert.
 
     {
         // Signals used in LessThan need to be range checked to avoid a subtle overflow bug demonstrated here https://github.com/BlakeMScurr/comparator-overflow
@@ -130,35 +132,29 @@ template Validate(levels) {
     }
 
     // Check that the leaf coins are owned by the signer and contain the sent coins
-    signal is_leaf_cointains_sent <== CoinRangeContains()(
+    CoinRangeContains()(
         set <== leaf_coins,
-        point <== highest_coin_to_send
+        element <== highest_coin_to_send
     );
 
-    signal is_signer_owner <== IsEqual()(in <== [signer, owner]);
-
-    // Check if all conditions for transaction validity hold
-    is_send_valid <== MultiAND(3)(
-        in <== [is_signature_valid, is_leaf_cointains_sent, is_signer_owner]
-    );
+    is_send_valid <== IsEqual()(in <== [sender, owner]);
 }
 
-// Checks whether a number is in a set.
-// I.e., [10, 20] contains 10, 11, 20 but doesn't contain
-// 8, 9, 21.
+// Checks whether an element is in a set.
+// I.e., [10, 20] contains 10, 11, 20 but doesn't contain 8, 9, 21.
 // Assumes that all inputs fit in 128 bits.
 template CoinRangeContains() {
     signal input set[2];
-    signal input point;
-    signal output out;
+    signal input element;
 
-    signal is_low <== LessEqThan(128)(in <== [set[0], point]);
-    signal is_high <== GreaterEqThan(128)(in <== [set[1], point]);
+    signal is_low <== LessEqThan(128)(in <== [set[0], element]);
+    signal is_high <== LessEqThan(128)(in <== [element, set[1]]);
 
-    out <== is_low * is_high;
+    is_low * is_high === 1;
 }
 
 // Assumes boolean inputs
+/*
 template MultiAND(n) {
     signal input in[n];
     signal output out;
@@ -170,6 +166,7 @@ template MultiAND(n) {
 
     out <== IsEqual()(in <== [sum, n]);
 }
+*/
 
 // TODO: decide on the public inputs.
 component main = Send(3);
