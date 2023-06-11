@@ -36,7 +36,8 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
 
     // Add claims to the maybe_winners tree if they are valid
     // Optionally invalidate them by providing an superseding claim
-    signal maybe_winners = EmptyTree(claim_levels);
+    signal maybe_winners[2 ** claim_levels + 1];
+    maybe_winners[0] <== EmptyTree(claim_levels);
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Make sure the claim is the ith in the claim tree
         {
@@ -47,7 +48,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
                 c <== ownership_PathIndices[i]
             )
 
-            // Ensure the full claim exists in the claim tree
+            // Ensure the full claim is next in the claim tree
             claim_root === CheckMerkleProof(claim_levels)(
                 leaf <== Poseidon(3 + state_levels)(inputs <== full_claim),
                 pathElements <== claim_PathElements,
@@ -89,9 +90,40 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
             );
         }
 
-        // TODO: check if the claim overlaps with the challenge
-        // TODO: see if the challenge supersedes the claim
-        // TODO: iff (claim is valid && challenge fails) insert into maybe_winners
+        signal challenge_succeeds;
+        {
+            signal challenge_overlaps <== CoinRangesOverlap()(
+                a[0] <== claims[i][1],
+                a[1] <== claims[i][2],
+                a[0] <== challenge_claims[i][1],
+                a[1] <== challenge_claims[i][2],
+            )
+
+            // Since the Merkle tree of the states is in order, the block number a claim
+            // is in corresponds to the first `upper_state_levels` bits of the Merkle proof's indices
+            signal claim_index_bits[upper_state_levels];
+            signal challenge_index_bits[upper_state_levels];
+            for (var i = 0; i < upper_state_levels; i++) {
+                claim_index_bits[i] <== ownership_PathIndices;
+                challenge_index_bits[i] <== challenge_state_PathIndices;
+            }
+            signal claim_index <== Bits2Num(upper_state_levels)(in <== claim_index_bits);
+            signal challenge_index <== Bits2Num(upper_state_levels)(in <== challenge_index_bits);
+            signal challenge_is_later <== LessThan(upper_state_levels)(in <== [claim_index, challenge_index]);
+
+            challenge_succeeds <== challenge_overlaps * challenge_is_later;
+        }
+
+
+        // iff (claim is valid && challenge fails) insert into maybe_winners
+        signal should_insert <== claim_is_valid * (1 - challenge_succeeds);
+        signal calculated <== CheckMerkleProof(claim_levels)(
+            leaf <== Poseidon(3)(inputs <== challenge_claims[i]),
+            pathElements <== maybe_insert_pathElements[i],
+            pathIndices <== Num2Bits(claim_levels)(in <== i)
+        );
+
+        maybe_winners[i + 1] <== (calculated - maybe_winners[i]) * should_insert + calculated;
     }
 
 
@@ -131,4 +163,12 @@ function EmptyTree(levels) {
     return last_layer; // TODO: return Poseidon(2)(last_layer, last_layer); without creating more signals
 }
 
+template CoinRangesOverlap() {
+    signal input a[2];
+    signal input b[2];
+    signal output out;
 
+    signal lower_a_in_b <== LessEqThan(128)(in <== [b[0], a[0]]) * LessEqThan(128)(in <== [a[0], b[1]]);
+    signal upper_a_in_b <== LessEqThan(128)(in <== [b[0], a[1]]) * LessEqThan(128)(in <== [a[1], b[1]]);
+    out <== OR()(a <== lower_a_in_b, b <== upper_a_in_b);
+}
