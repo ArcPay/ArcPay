@@ -6,46 +6,54 @@ include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider P
 // 
 // First we create the undefeated tree. Every claim is added to the undefeated tree,
 // unless the prover provides another claim that supersedes it.
-// Then we iterate through a permutation of the undefeated tree, proving that coin range is
-// strictly greater than the last. I.e., for ranges [a,b] and [c,d], that b < c.
-// As we iterate, we count the number of ranges we've counted, then prove that the number is
-// equal to the number of ranges in the undefeated tree.
-// 
-// We can be sure that every claim in the final tree is the only claim for those coins because there are no overlapping claims.
-// Since it's the only claim, we can be sure it's the highest priority claim, since the only way to avoid adding a claim to the tree
-// is by superseeding it.
+// Then we prove that a new tree called the sorted tree contains every value from the undefeated tree.
+// Then we prove the undefeated tree has every value from the sorted tree. This proves that
+// they are permutations of each other, except if there are duplicates, which may differ between trees.
+// Finally we prove that every coin range in the sorted tree is strictly greater than the last (except zero leafs which are all at the start).
+// I.e., for ranges [a,b] and [c,d], that b < c.
+// This proves that the only duplicates in the tree are 0 nodes
 // 
 // Distribute has a few properties:
 // - It is deterministic wrt its inputs, so that any can calculate the output root and Merkle proofs they might need from onchain data
 // - It is unjammable, in that it can take any arbitrary claim_root/states_root pair and still be executed
 // - It includes all the actual winners and no other claims
 //
+// TODO: fix issue around adding the same claim multiple times (makes it non-deterministic, and solutions to that seem to make it jammable)
 // TODO: use recursion/folding rather than interation within the circuit and give the claim Merkle tree a definitive final element to avoid halt early
 template Distribute(claim_levels, state_levels, upper_state_levels) {
     // Public inputs
     signal input states_root; // The state tree is a Poseidon Merkle tree which of depth upper_state_levels which contains trees of depth state_levels - upper_state_levels
     signal input claim_root; // The claim commitment is the root Poseidon Merkle tree
+    signal output sorted_root;
 
-    // Private inputs
-    signal claims[2 ** claim_levels][3]; // Each claim has [owner, start_coin, end_coin]
-    signal claim_PathElements[2 ** claim_levels][claim_levels]; // Proves the claim is in the claim root
-    signal ownership_PathElements[2 ** claim_levels][state_levels]; // Proves the claim is in the state root
-    signal ownership_PathIndices[2 ** claim_levels][state_levels];
+    // Advice for building the undefeated tree
+    signal input claims[2 ** claim_levels][3]; // Each claim has [owner, start_coin, end_coin]
+    signal input claim_PathElements[2 ** claim_levels][claim_levels]; // Proves the claim is in the claim root
+    signal input ownership_PathElements[2 ** claim_levels][state_levels]; // Proves the claim is in the state root
+    signal input ownership_PathIndices[2 ** claim_levels][state_levels];
 
-    signal challenge_claims[2 ** claim_levels][3];
-    signal challenge_claim_PathElements[2 ** claim_levels][claim_levels]; // Proves the superseding claim is in the claim root
-    signal challenge_claim_PathIndices[2 ** claim_levels][claim_levels];
-    signal challenge_state_PathElements[2 ** claim_levels][state_levels]; // Proves the superseding claim is in the state 
-    signal challenge_state_PathIndices[2 ** claim_levels][state_levels];
+    signal input challenge_claims[2 ** claim_levels][3];
+    signal input challenge_claim_PathElements[2 ** claim_levels][claim_levels]; // Proves the superseding claim is in the claim root
+    signal input challenge_claim_PathIndices[2 ** claim_levels][claim_levels];
+    signal input challenge_state_PathElements[2 ** claim_levels][state_levels]; // Proves the superseding claim is in the state 
+    signal input challenge_state_PathIndices[2 ** claim_levels][state_levels];
 
-    signal undefeated_insert_pathElements[2 ** claim_levels][state_levels];
+    signal input undefeated_insert_pathElements[2 ** claim_levels][state_levels];
 
-    signal output final_owners_root;
+    // Advice for proving that the sorted and undefeated trees are equivalent
+    signal input undefeated_leaves[2 ** claim_levels];
+    signal input sorted_leaves[2 ** claim_levels];
+    signal input sorting_permutation_PathIndices[2 ** claim_levels][state_levels];
+    signal input sorting_permutation_preimage_PathElements[2 ** claim_levels][state_levels];
+    signal input sorting_permutation_image_PathElements[2 ** claim_levels][state_levels];
+    signal input unsorting_permutation_PathIndices[2 ** claim_levels][state_levels];
+    signal input unsorting_permutation_preimage_PathElements[2 ** claim_levels][state_levels];
+    signal input unsorting_permutation_image_PathElements[2 ** claim_levels][state_levels];
 
     // Add claims to the undefeated tree if they are valid
     // Optionally invalidate them by providing an superseding claim
-    signal undefeated[2 ** claim_levels + 1];
-    undefeated[0] <== EmptyTree(claim_levels);
+    signal undefeated_partial[2 ** claim_levels + 1];
+    undefeated_partial[0] <== EmptyTree(claim_levels);
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Make sure the claim is the ith in the claim tree
         {
@@ -131,17 +139,51 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
             pathIndices <== Num2Bits(claim_levels)(in <== i)
         );
 
-        undefeated[i + 1] <== (calculated - undefeated[i]) * should_insert + calculated;
-        // TODO: count the number of things added to the tree
+        undefeated_partial[i + 1] <== (calculated - undefeated_partial[i]) * should_insert + calculated;
+    }
+    signal undefeated <== undefeated_partial[2 ** claim_levels];
+
+    // Prove that the sorted tree contains all elements in the undefeated tree
+    for (var i = 0; i < 2 ** claim_levels; i++) {
+        // Prove that the advice leaf is the ith leaf in the undefeated tree
+        undefeated === CheckMerkleProof(claim_levels)(
+            leaf <== undefeated_leaves[i],
+            pathElements <== sorting_permutation_preimage_PathElements[i],
+            pathIndices <== Num2Bits(claim_levels)(in <== i)
+        );
+
+        // Prove that the ith leaf in the undefeated tree exists in the sorted tree
+        sorted === CheckMerkleProof(claim_levels)(
+            leaf <== undefeated_leaves[i],
+            pathElements <== sorting_permutation_image_PathElements[i],
+            pathIndices <== sorting_permutation_PathIndices,
+        )
     }
 
+    // Prove that the undefeated tree contains all elements in the sorted tree
+    for (var i = 0; i < 2 ** claim_levels; i++) {
+        // Prove that the advice leaf is the ith leaf in the sorted tree
+        sorted === CheckMerkleProof(claim_levels)(
+            leaf <== sorted_leaves[i],
+            pathElements <== unsorting_permutation_preimage_PathElements[i],
+            pathIndices <== Num2Bits(claim_levels)(in <== i)
+        );
+
+        // Prove that the ith leaf in the sorted tree exists in the undefeated tree
+        undefeated === CheckMerkleProof(claim_levels)(
+            leaf <== sorted_leaves[i],
+            pathElements <== unsorting_permutation_image_PathElements[i],
+            pathIndices <== unsorting_permutation_PathIndices,
+        )
+    }
+
+    // Verify that every value in the per
 
     // TODO: iterate through undefeated tree
     //  - Allow zeroed values to follow zeroed values, but never anything else
     //  - Make sure each value is smaller than the last
     //  - Count each range visited
 
-    // TODO: make sure the number of ranges visited is equal to the number of values added to the undefeated tree
 
 }
 
