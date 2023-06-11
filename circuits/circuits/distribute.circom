@@ -5,10 +5,11 @@ include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider P
 // Distrubte takes a commitment to all claims, validates them, and outputs a commitment to the rightful owners
 // 
 // First we create the undefeated tree. Every claim is added to the undefeated tree,
-// unless the prover provies another claim that supersedes them.
-// Then we prove that the sorted_tree contains every value in the undefeated tree and vice_versa.
-// Then we prove that the sorted_tree is sorted and disjoint, such that there are no overlapping claims.
-// The sorted tree is output from the circuit.
+// unless the prover provides another claim that supersedes it.
+// Then we iterate through a permutation of the undefeated tree, proving that coin range is
+// strictly greater than the last. I.e., for ranges [a,b] and [c,d], that b < c.
+// As we iterate, we count the number of ranges we've counted, then prove that the number is
+// equal to the number of ranges in the undefeated tree.
 // 
 // We can be sure that every claim in the final tree is the only claim for those coins because there are no overlapping claims.
 // Since it's the only claim, we can be sure it's the highest priority claim, since the only way to avoid adding a claim to the tree
@@ -131,12 +132,16 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
 
         undefeated[i + 1] <== (calculated - undefeated[i]) * should_insert + calculated;
+        // TODO: count the number of things added to the tree
     }
 
 
-    // TODO: prove sorted tree is equivalent to undefeated
+    // TODO: iterate through undefeated tree
+    //  - Allow zeroed values to follow zeroed values, but never anything else
+    //  - Make sure each value is smaller than the last
+    //  - Count each range visited
 
-    // TODO: prove sorted tree is in order and disjoint
+    // TODO: make sure the number of ranges visited is equal to the number of values added to the undefeated tree
 
 }
 
