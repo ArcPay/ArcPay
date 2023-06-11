@@ -4,15 +4,20 @@ include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider P
 
 // Distrubte takes a commitment to all claims, validates them, and outputs a commitment to the rightful owners
 // 
-// First we create the maybe_winners tree. Every claim is added to the maybe_winners tree,
+// First we create the undefeated tree. Every claim is added to the undefeated tree,
 // unless the prover provies another claim that supersedes them.
-// Then we prove that the sorted_tree contains every value in the maybe_winners tree and vice_versa.
+// Then we prove that the sorted_tree contains every value in the undefeated tree and vice_versa.
 // Then we prove that the sorted_tree is sorted and disjoint, such that there are no overlapping claims.
 // The sorted tree is output from the circuit.
 // 
 // We can be sure that every claim in the final tree is the only claim for those coins because there are no overlapping claims.
 // Since it's the only claim, we can be sure it's the highest priority claim, since the only way to avoid adding a claim to the tree
 // is by superseeding it.
+// 
+// Distribute has a few properties:
+// - It is deterministic wrt its inputs, so that any can calculate the output root and Merkle proofs they might need from onchain data
+// - It is unjammable, in that it can take any arbitrary claim_root/states_root pair and still be executed
+// - It includes all the actual winners and no other claims
 //
 // TODO: use recursion/folding rather than interation within the circuit and give the claim Merkle tree a definitive final element to avoid halt early
 template Distribute(claim_levels, state_levels, upper_state_levels) {
@@ -32,12 +37,14 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     signal challenge_state_PathElements[2 ** claim_levels][state_levels]; // Proves the superseding claim is in the state 
     signal challenge_state_PathIndices[2 ** claim_levels][state_levels];
 
+    signal undefeated_insert_pathElements[2 ** claim_levels][state_levels];
+
     signal output final_owners_root;
 
-    // Add claims to the maybe_winners tree if they are valid
+    // Add claims to the undefeated tree if they are valid
     // Optionally invalidate them by providing an superseding claim
-    signal maybe_winners[2 ** claim_levels + 1];
-    maybe_winners[0] <== EmptyTree(claim_levels);
+    signal undefeated[2 ** claim_levels + 1];
+    undefeated[0] <== EmptyTree(claim_levels);
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Make sure the claim is the ith in the claim tree
         {
@@ -115,19 +122,19 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         }
 
 
-        // iff (claim is valid && challenge fails) insert into maybe_winners
+        // iff (claim is valid && challenge fails) insert into undefeated
         signal should_insert <== claim_is_valid * (1 - challenge_succeeds);
         signal calculated <== CheckMerkleProof(claim_levels)(
             leaf <== Poseidon(3)(inputs <== challenge_claims[i]),
-            pathElements <== maybe_insert_pathElements[i],
+            pathElements <== undefeated_insert_pathElements[i],
             pathIndices <== Num2Bits(claim_levels)(in <== i)
         );
 
-        maybe_winners[i + 1] <== (calculated - maybe_winners[i]) * should_insert + calculated;
+        undefeated[i + 1] <== (calculated - undefeated[i]) * should_insert + calculated;
     }
 
 
-    // TODO: prove sorted tree is equivalent to maybe_winners
+    // TODO: prove sorted tree is equivalent to undefeated
 
     // TODO: prove sorted tree is in order and disjoint
 
