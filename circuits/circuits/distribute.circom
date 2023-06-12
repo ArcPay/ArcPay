@@ -21,7 +21,6 @@ include "./merkle_tree.circom";
 // - It is unjammable, in that it can take any arbitrary claim_root/states_root pair and still be executed
 // - It includes all the actual winners and no other claims
 //
-// TODO: fix issue around adding the same claim multiple times (makes it non-deterministic, and solutions to that seem to make it jammable)
 // TODO: use recursion/folding rather than interation within the circuit and give the claim Merkle tree a definitive final element to avoid halt early
 template Distribute(claim_levels, state_levels, upper_state_levels) {
     assert(state_levels > upper_state_levels);
@@ -55,57 +54,18 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
 
     // Ensure that the undefeated tree's elements are identical to the claim tree,
     // except where they're zeroed out when a winning challenge is provided
-    signal claim_is_valid[2 ** claim_levels];
-    signal challenges[2 ** claim_levels][3];
-    signal challenge_indices[2 ** claim_levels][state_levels];
-    signal challenge_path[2 ** claim_levels][state_levels];
-    signal challenge_is_valid[2 ** claim_levels];
-    signal challenge_succeeds[2 ** claim_levels];
-    signal should_insert[2 ** claim_levels];
-    signal claim_hash[2 ** claim_levels];
     for (var i = 0; i < 2 ** claim_levels; i++) {
-        claim_is_valid[i] <== ClaimIsValid(claim_levels, state_levels)(
-            i,
-            claims[i],
-            ownership_PathElements[i],
-            ownership_PathIndices[i],
-            claim_PathElements[i],
+        UndefeatedLeafRootIsValid(claim_levels, state_levels, upper_state_levels, i)(
             states_root,
-            claim_root
-        );
-
-        // Make sure the challenger is a real leaf in the claim tree with a valid proof of ownership
-        // The prover can always find *some* challenger in the tree as long as there is at least one valid claim
-        challenges[i] <-- claims[ci[i]];
-        challenge_indices[i] <-- ownership_PathIndices[ci[i]];
-
-        challenge_is_valid[i] <== ClaimIsValid(claim_levels, state_levels)(
-            i <-- ci[i],
-            claim <== challenges[i],
-            ownership_PathElements <-- ownership_PathElements[ci[i]],
-            ownership_PathIndices <== challenge_indices[i],
-            claim_PathElements <-- claim_PathElements[ci[i]],
-            states_root <== states_root,
-            claim_root <== claim_root
-        );
-        challenge_is_valid[i] === 1;
-
-        challenge_succeeds[i] <== ChallengeSucceeds(state_levels, upper_state_levels)(
-            defender <== claims[i],
-            challenger <== challenges[i],
-            defender_ownership_indices <== ownership_PathIndices[i],
-            challenger_ownership_indices <== challenge_indices[i]
-        );
-
-        // iff (claim is valid && challenge fails) undefeated contains the claim at this index, otherwise it contains 0
-        should_insert[i] <== claim_is_valid[i] * (1 - challenge_succeeds[i]);
-        claim_hash[i] <== Poseidon(3)(claims[i]);
-        undefeated_leaves[i] === claim_hash[i] * should_insert[i];
-        CheckMerkleProofStrict(claim_levels)(
-            undefeated_leaves[i],
-            undefeated_pathElements[i],
-            Num2Bits(claim_levels)(in <== i),
-            claim_root
+            ownership_PathElements,
+            ownership_PathIndices,
+            claim_root,
+            claims,
+            claim_PathElements,
+            undefeated_root,
+            undefeated_leaves,
+            undefeated_pathElements,
+            ci
         );
     }
 
@@ -154,6 +114,66 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
             claims <-- [claims[reverse_permutation_Indices[i-1]], claims[reverse_permutation_Indices[i]]]
         );
     }
+}
+
+template UndefeatedLeafRootIsValid(claim_levels, state_levels, upper_state_levels, i) {
+    signal input states_root;
+    signal input ownership_PathElements[2 ** claim_levels][state_levels];
+    signal input ownership_PathIndices[2 ** claim_levels][state_levels];
+
+    signal input claim_root;
+    signal input claims[2 ** claim_levels][3];
+    signal input claim_PathElements[2 ** claim_levels][claim_levels];
+
+    signal input undefeated_root;
+    signal input undefeated_leaves[2 ** claim_levels];
+    signal input undefeated_pathElements[2 ** claim_levels][state_levels];
+
+    signal input ci[2 ** claim_levels];
+
+    signal claim_is_valid <== ClaimIsValid(claim_levels, state_levels)(
+        i,
+        claims[i],
+        ownership_PathElements[i],
+        ownership_PathIndices[i],
+        claim_PathElements[i],
+        states_root,
+        claim_root
+    );
+
+    // Make sure the challenger is a real leaf in the claim tree with a valid proof of ownership
+    // The prover can always find *some* challenger in the tree as long as there is at least one valid claim
+    signal challenges[3] <-- claims[ci[i]];
+    signal challenge_indices[state_levels] <-- ownership_PathIndices[ci[i]];
+
+    signal challenge_is_valid <== ClaimIsValid(claim_levels, state_levels)(
+        i <-- ci[i],
+        claim <== challenges,
+        ownership_PathElements <-- ownership_PathElements[ci[i]],
+        ownership_PathIndices <== challenge_indices,
+        claim_PathElements <-- claim_PathElements[ci[i]],
+        states_root <== states_root,
+        claim_root <== claim_root
+    );
+    challenge_is_valid === 1;
+
+    signal challenge_succeeds <== ChallengeSucceeds(state_levels, upper_state_levels)(
+        defender <== claims[i],
+        challenger <== challenges,
+        defender_ownership_indices <== ownership_PathIndices[i],
+        challenger_ownership_indices <== challenge_indices
+    );
+
+    // iff (claim is valid && challenge fails) undefeated contains the claim at this index, otherwise it contains 0
+    signal should_insert <== claim_is_valid * (1 - challenge_succeeds);
+    signal claim_hash <== Poseidon(3)(claims[i]);
+    undefeated_leaves[i] === claim_hash * should_insert;
+    CheckMerkleProofStrict(claim_levels)(
+        undefeated_leaves[i],
+        undefeated_pathElements[i],
+        Num2Bits(claim_levels)(in <== i),
+        undefeated_root
+    );
 }
 
 template ClaimIsValid(claim_levels, state_levels) {
