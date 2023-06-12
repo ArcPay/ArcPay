@@ -64,3 +64,19 @@ template UpdateLeaf(levels) {
     mpcs[1].leaf <== new_leaf;
     new_root <== mpcs[1].root;
 }
+
+template CheckMerkleProofStrict(levels) {
+    signal input leaf;
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
+    signal input root;
+
+    calculated_root <== CheckMerkleProof(
+        leaf,
+        pathIndices,
+        pathElements,
+        root
+    );
+
+    root === calculated_root;
+}
