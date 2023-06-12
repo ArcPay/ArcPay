@@ -8,9 +8,9 @@ include "./node_modules/circomlib/circuits/poseidon.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 template Send(levels, n, k) {
+    signal input step_in; // initial_root
     signal input sender;
     signal input recipient;
-    signal input initial_root;
 
     signal input owner;
     signal input leaf_coins[2];
@@ -45,8 +45,7 @@ template Send(levels, n, k) {
         s <== s,
         msghash <== msghash,
         pubkey <== pubkey,
-        leaf_coins <== leaf_coins,
-        receiver <== recipient,
+        msg <== [leaf_coins[0], leaf_coins[1], highest_coin_to_send, recipient],
         signer <== sender
     );
 
@@ -187,5 +186,4 @@ template MultiAND(n) {
 }
 */
 
-// TODO: decide on the public inputs.
-component main = Send(3, 64, 4);
+component main { public [step_in] } = Send(3, 64, 4);

@@ -10,15 +10,17 @@ include "./node_modules/circomlib/circuits/comparators.circom";
 // if the recipient is 0, the transaction is a withdrawal, if neither are
 // 0 it's an L2->L2 send, and both can't be 0.
 template Withdraw(levels, n, k) {
+    signal input step_in;
     signal input sender;
     signal input recipient;
-    signal input initial_root;
 
     signal input leaf_coins[2];
     signal input pathElements[levels];
     signal input pathIndices[levels];
 
     signal output new_root;
+
+    signal initial_root <== step_in;
 
     // signature verification.
     signal input r[k];
@@ -64,4 +66,4 @@ template Withdraw(levels, n, k) {
 }
 
 // TODO: decide on the public inputs.
-component main { public [initial_root] } = Withdraw(3, 64, 4);
+component main { public [step_in] } = Withdraw(3, 64, 4);
