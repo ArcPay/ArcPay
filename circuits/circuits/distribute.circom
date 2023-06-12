@@ -9,7 +9,7 @@ include "./node_modules/circomlib/circuits/poseidon.circom"; // TODO: consider P
 // Then we prove that a new tree called the sorted tree contains every value from the undefeated tree.
 // Then we prove the undefeated tree has every value from the sorted tree. This proves that
 // they are permutations of each other, except if there are duplicates, which may differ between trees.
-// Finally we prove that every coin range in the sorted tree is strictly greater than the last (except zero leafs which are all at the start).
+// Finally we prove that every coin range in the sorted tree is strictly greater than the last (except zero leafs which are all at the end).
 // I.e., for ranges [a,b] and [c,d], that b < c.
 // This proves that the only duplicates in the tree are 0 nodes
 // 
@@ -24,7 +24,8 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     // Public inputs
     signal input states_root; // The state tree is a Poseidon Merkle tree which of depth upper_state_levels which contains trees of depth state_levels - upper_state_levels
     signal input claim_root; // The claim commitment is the root Poseidon Merkle tree
-    signal output sorted_root;
+    signal input undefeated_root;
+    signal input sorted_root;
 
     // Advice for building the undefeated tree
     signal input claims[2 ** claim_levels][3]; // Each claim has [owner, start_coin, end_coin]
@@ -38,22 +39,18 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     signal input challenge_state_PathElements[2 ** claim_levels][state_levels]; // Proves the superseding claim is in the state 
     signal input challenge_state_PathIndices[2 ** claim_levels][state_levels];
 
-    signal input undefeated_insert_pathElements[2 ** claim_levels][state_levels];
+    signal input undefeated_pathElements[2 ** claim_levels][state_levels];
 
     // Advice for proving that the sorted and undefeated trees are equivalent
     signal input undefeated_leaves[2 ** claim_levels];
+    signal input undefeated_pathElements[2 ** claim_levels][state_levels];
     signal input sorted_leaves[2 ** claim_levels];
-    signal input sorting_permutation_PathIndices[2 ** claim_levels][state_levels];
-    signal input sorting_permutation_preimage_PathElements[2 ** claim_levels][state_levels];
-    signal input sorting_permutation_image_PathElements[2 ** claim_levels][state_levels];
-    signal input unsorting_permutation_PathIndices[2 ** claim_levels][state_levels];
-    signal input unsorting_permutation_preimage_PathElements[2 ** claim_levels][state_levels];
-    signal input unsorting_permutation_image_PathElements[2 ** claim_levels][state_levels];
+    signal input sorted_pathElements[2 ** claim_levels][state_levels];
+    signal input permutation_Indices[2 ** claim_levels];
+    signal input reverse_permutation_Indices[2 ** claim_levels];
 
     // Add claims to the undefeated tree if they are valid
     // Optionally invalidate them by providing an superseding claim
-    signal undefeated_partial[2 ** claim_levels + 1];
-    undefeated_partial[0] <== EmptyTree(claim_levels);
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Make sure the claim is the ith in the claim tree
         {
@@ -83,6 +80,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         // Optionally supersede the claim
         // Make sure the challenger is a real leaf in the claim tree, and is a valid proof of ownership
         // The prover can always find *some* challenger in the tree as long as there is at least one valid claim
+        signal challenge_leaf <== Poseidon(3)(inputs <== challenge_claims[i]);
         {
             // Full challenge includes ownership proof
             signal challenge[3 + 2 * (state_levels)] <== concat3(3, state_levels, state_levels)(
@@ -100,7 +98,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
 
             // Ensure the challenge has a valid ownership proof
             states_root === CheckMerkleProof(state_levels)(
-                leaf <== Poseidon(3)(inputs <== challenge_claims[i]),
+                leaf <== challenge_leaf,
                 pathElements <== challenge_state_PathElements[i],
                 pathIndices <== challenge_state_PathIndices[i],
             );
@@ -131,32 +129,29 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         }
 
 
-        // iff (claim is valid && challenge fails) insert into undefeated
+        // iff (claim is valid && challenge fails) undefeated contains the claim at this index, otherwise it contains 0
         signal should_insert <== claim_is_valid * (1 - challenge_succeeds);
         signal calculated <== CheckMerkleProof(claim_levels)(
-            leaf <== Poseidon(3)(inputs <== challenge_claims[i]),
-            pathElements <== undefeated_insert_pathElements[i],
+            leaf <== challeng_leaf * should_insert,
+            pathElements <== undefeated_pathElements[i],
             pathIndices <== Num2Bits(claim_levels)(in <== i)
         );
-
-        undefeated_partial[i + 1] <== (calculated - undefeated_partial[i]) * should_insert + calculated;
     }
-    signal undefeated <== undefeated_partial[2 ** claim_levels];
 
     // Prove that the sorted tree contains all elements in the undefeated tree
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the undefeated tree
         undefeated === CheckMerkleProof(claim_levels)(
             leaf <== undefeated_leaves[i],
-            pathElements <== sorting_permutation_preimage_PathElements[i],
+            pathElements <== undefeated_pathElements[i],
             pathIndices <== Num2Bits(claim_levels)(in <== i)
         );
 
         // Prove that the ith leaf in the undefeated tree exists in the sorted tree
         sorted === CheckMerkleProof(claim_levels)(
             leaf <== undefeated_leaves[i],
-            pathElements <== sorting_permutation_image_PathElements[i],
-            pathIndices <== sorting_permutation_PathIndices,
+            pathElements <-- sorted_pathElements[permutation_Indices[i]],
+            pathIndices <== Num2Bits(128)(in <== permutation_Indices[i]),
         )
     }
 
@@ -165,27 +160,45 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         // Prove that the advice leaf is the ith leaf in the sorted tree
         sorted === CheckMerkleProof(claim_levels)(
             leaf <== sorted_leaves[i],
-            pathElements <== unsorting_permutation_preimage_PathElements[i],
+            pathElements <== sorted_pathElements[i],
             pathIndices <== Num2Bits(claim_levels)(in <== i)
         );
 
         // Prove that the ith leaf in the sorted tree exists in the undefeated tree
         undefeated === CheckMerkleProof(claim_levels)(
             leaf <== sorted_leaves[i],
-            pathElements <== unsorting_permutation_image_PathElements[i],
-            pathIndices <== unsorting_permutation_PathIndices,
+            pathElements <-- undefeated_pathElements[reverse_permutation_Indices[i]],
+            pathIndices <== Num2Bits(128)(in <== reverse_permutation_Indices),
         )
     }
 
-    // Verify that every value in the per
+    // Verify that sorted tree is sorted, and contains no repitition except 0 leaves at the end
+    for (var i = 1; i < 2 ** claim_levels; i++) {
+        // If we have a zeroed value, make sure it's followed by a zero, i.e., if the previous value is zero, the current value can't be non-zero
+        // Note, we've already proved that sorted_leaves[i] is indeed the ith leaf in the sorted tree
+        signal curr_is_nonzero <== 1 - IsZero()(in <== sorted_leaves[i]);
+        signal prev_is_zero <== IsZero()(in <== sorted_leaves[i-1]); // TODO: make sure that the compiler optimised out repeated constraints, like curr[i] is equal to prev[i+1]
+        1 == NAND()(
+            a <== prev_is_zero
+            b <== curr_is_nonzero,
+        )
 
-    // TODO: iterate through undefeated tree
-    //  - Allow zeroed values to follow zeroed values, but never anything else
-    //  - Make sure each value is smaller than the last
-    //  - Count each range visited
-
-
+        // If we have a non-zero value, make sure it's followed by zero or something higher
+        // We start by assigning (a, b)) to (prev_range[1], curr_range[0]) if the !prev_is_zero
+        // If prev_is_zero, (a, b) = (0, 1), which trivially passes our check
+        // Then we check that a < b
+        // Note, there *MUST* be a check in the claiming contract that claim[0] <= claim[1] (which ensures that prev_range[0] <= prev_range[1] and curr_range[0] <= curr_range[1])
+        signal a <-- prev_is_zero ? 0 : claims[reverse_permutation_Indices[i-1]][2];
+        signal b <-- prev_is_zero ? 1 : claims[reverse_permutation_Indices[i]][1];
+        signal calculated_leaf_a <== Poseidon(3)(claims[reverse_permutation_Indices[i-1]]);
+        signal calculated_leaf_b <== Poseidon(3)(claims[reverse_permutation_Indices[i]]);
+        signal prev_nonzero <== 1 - prev_is_zero;
+        prev_nonzero * (calculated_leaf_a - sorted_leaves[i-1]) === 0;
+        prev_nonzero * (calculated_leaf_b - sorted_leaves[i]) === 0;
+    }
 }
+
+
 
 // Concatenates 3 arrays
 // Note, these extra constraints should be optimised out by the compiler
