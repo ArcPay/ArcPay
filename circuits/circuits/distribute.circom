@@ -53,24 +53,25 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     signal input permutation_Indices[2 ** claim_levels];
     signal input reverse_permutation_Indices[2 ** claim_levels];
 
-
-    // -------------- Step 1 --------------
     // Ensure that the undefeated tree's elements are identical to the claim tree,
     // except where they're zeroed out when a winning challenge is provided
     signal claim_is_valid[2 ** claim_levels];
-    signal challenges[2 ** claim_levels];
-    signal challenge_indices[2 ** claim_levels];
-    signal challenge_path[2 ** claim_levels];
+    signal challenges[2 ** claim_levels][3];
+    signal challenge_indices[2 ** claim_levels][state_levels];
+    signal challenge_path[2 ** claim_levels][state_levels];
     signal challenge_is_valid[2 ** claim_levels];
     signal challenge_succeeds[2 ** claim_levels];
-    signal should_insert[i][2 ** claim_levels];
+    signal should_insert[2 ** claim_levels];
+    signal claim_hash[2 ** claim_levels];
     for (var i = 0; i < 2 ** claim_levels; i++) {
-        claim_is_valid[i] <== ClaimIsValid(claim_leves, state_levels)(
+        claim_is_valid[i] <== ClaimIsValid(claim_levels, state_levels)(
             i,
             claims[i],
             ownership_PathElements[i],
             ownership_PathIndices[i],
-            claim_PathElements[i]
+            claim_PathElements[i],
+            states_root,
+            claim_root
         );
 
         // Make sure the challenger is a real leaf in the claim tree with a valid proof of ownership
@@ -78,12 +79,14 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         challenges[i] <-- claims[ci[i]];
         challenge_indices[i] <-- ownership_PathIndices[ci[i]];
 
-        challenge_is_valid[i] <== ClaimIsValid(claim_leves, state_levels)(
+        challenge_is_valid[i] <== ClaimIsValid(claim_levels, state_levels)(
             i <-- ci[i],
             claim <== challenges[i],
             ownership_PathElements <-- ownership_PathElements[ci[i]],
             ownership_PathIndices <== challenge_indices[i],
-            claim_PathElements <-- claim_PathElements[ci[i]]
+            claim_PathElements <-- claim_PathElements[ci[i]],
+            states_root <== states_root,
+            claim_root <== claim_root
         );
         challenge_is_valid[i] === 1;
 
@@ -95,8 +98,9 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
 
         // iff (claim is valid && challenge fails) undefeated contains the claim at this index, otherwise it contains 0
-        should_insert[i] <== claim_is_valid * (1 - challenge_succeeds);
-        undefeated_leaves[i] === challenge_leaf * should_insert[i];
+        should_insert[i] <== claim_is_valid[i] * (1 - challenge_succeeds[i]);
+        claim_hash[i] <== Poseidon(3)(claims[i]);
+        undefeated_leaves[i] === claim_hash[i] * should_insert[i];
         CheckMerkleProofStrict(claim_levels)(
             undefeated_leaves[i],
             undefeated_pathElements[i],
@@ -108,66 +112,47 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     // Prove that the sorted tree contains all elements in the undefeated tree
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the undefeated tree
-        signal calculated_undefeated_root <== CheckMerkleProof(claim_levels)(
+        CheckMerkleProofStrict(claim_levels)(
             leaf <== undefeated_leaves[i],
             pathElements <== undefeated_pathElements[i],
-            pathIndices <== Num2Bits(claim_levels)(i)
+            pathIndices <== Num2Bits(claim_levels)(i),
+            root <== undefeated_root
         );
-        calculated_undefeated_root === undefeated_root;
 
         // Prove that the ith leaf in the undefeated tree exists in the sorted tree
-        signal calculated_sorted_root <== CheckMerkleProof(claim_levels)(
+        CheckMerkleProofStrict(claim_levels)(
             leaf <== undefeated_leaves[i],
             pathElements <-- sorted_pathElements[permutation_Indices[i]],
-            pathIndices <== Num2Bits(128)(permutation_Indices[i])
+            pathIndices <== Num2Bits(claim_levels)(permutation_Indices[i]),
+            root <== sorted_root
         );
-        calculated_sorted_root === sorted_root;
     }
 
     // Prove that the undefeated tree contains all elements in the sorted tree
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the sorted tree
-        signal calculated_sorted_root <== CheckMerkleProof(claim_levels)(
+        CheckMerkleProofStrict(claim_levels)(
             leaf <== sorted_leaves[i],
             pathElements <== sorted_pathElements[i],
-            pathIndices <== Num2Bits(claim_levels)(i)
+            pathIndices <== Num2Bits(claim_levels)(i),
+            root <== sorted_root
         );
-        calculated_sorted_root === sorted_root;
 
         // Prove that the ith leaf in the sorted tree exists in the undefeated tree
-        signal calculated_undefeated_root <== CheckMerkleProof(claim_levels)(
+        CheckMerkleProofStrict(claim_levels)(
             leaf <== sorted_leaves[i],
             pathElements <-- undefeated_pathElements[reverse_permutation_Indices[i]],
-            pathIndices <== Num2Bits(128)(reverse_permutation_Indices)
+            pathIndices <== Num2Bits(claim_levels)(reverse_permutation_Indices[i]),
+            root <== undefeated_root
         );
-        calculated_undefeated_root === undefeated_root;
     }
 
     // Verify that sorted tree is sorted, and contains no repitition except 0 leaves at the end
     for (var i = 1; i < 2 ** claim_levels; i++) {
-        // If we have a zeroed value, make sure it's followed by a zero, i.e., if the previous value is zero, the current value can't be non-zero
-        // Note, we've already proved that sorted_leaves[i] is indeed the ith leaf in the sorted tree
-        signal curr_is_zero <== IsZero()(sorted_leaves[i]);
-        signal curr_is_nonzero <== 1 - curr_is_zero;
-        signal prev_is_zero <== IsZero()(sorted_leaves[i-1]); // TODO: make sure that the compiler optimised out repeated constraints, like curr[i] is equal to prev[i+1]
-        signal following_valid <== NAND()(
-            a <== prev_is_zero,
-            b <== curr_is_nonzero
+        ClaimsInOrder()(
+            leaves <== [sorted_leaves[i-1], sorted_leaves[i]],
+            claims <-- [claims[reverse_permutation_Indices[i-1]], claims[reverse_permutation_Indices[i]]]
         );
-        following_valid === 1;
-
-        // If we have a non-zero value, make sure it's followed by zero or something higher
-        // We start by assigning (a, b)) to (prev_range[1], curr_range[0]) if the !prev_is_zero
-        // If prev_is_zero, (a, b) = (0, 1), which trivially passes our check
-        // Then we check that a < b
-        // Note, there *MUST* be a check in the claiming contract that claim[0] <= claim[1] (which ensures that prev_range[0] <= prev_range[1] and curr_range[0] <= curr_range[1])
-        signal a <-- prev_is_zero ? 0 : claims[reverse_permutation_Indices[i-1]][2];
-        signal b <-- prev_is_zero ? 1 : claims[reverse_permutation_Indices[i]][1];
-        signal calculated_leaf_a <== Poseidon(3)(claims[reverse_permutation_Indices[i-1]]);
-        signal calculated_leaf_b <== Poseidon(3)(claims[reverse_permutation_Indices[i]]);
-        signal prev_nonzero <== 1 - prev_is_zero;
-        prev_nonzero * (calculated_leaf_a - sorted_leaves[i-1]) === 0;
-        prev_nonzero * (calculated_leaf_b - sorted_leaves[i]) === 0;
     }
 }
 
@@ -177,6 +162,8 @@ template ClaimIsValid(claim_levels, state_levels) {
     signal input ownership_PathElements[state_levels];
     signal input ownership_PathIndices[state_levels];
     signal input claim_PathElements[claim_levels];
+    signal input states_root;
+    signal input claim_root;
 
     signal output out;
 
@@ -206,8 +193,6 @@ template ClaimIsValid(claim_levels, state_levels) {
         states_root
     ]);
 }
-
-
 
 // Concatenates 3 arrays
 // Note, these extra constraints should be optimised out by the compiler
@@ -247,14 +232,14 @@ template ChallengeSucceeds(state_levels, upper_state_levels) {
     signal claim_index_bits[upper_state_levels];
     signal challenge_index_bits[upper_state_levels];
     for (var i = 0; i < upper_state_levels; i++) {
-        claim_index_bits[i] <== defender_ownership_indices;
-        challenge_index_bits[i] <== challenger_ownership_indices;
+        claim_index_bits[i] <== defender_ownership_indices[i];
+        challenge_index_bits[i] <== challenger_ownership_indices[i];
     }
     signal claim_index <== Bits2Num(upper_state_levels)(claim_index_bits);
     signal challenge_index <== Bits2Num(upper_state_levels)(challenge_index_bits);
     signal challenge_is_later <== LessThan(upper_state_levels)([claim_index, challenge_index]);
 
-    challenge_succeeds <== challenge_overlaps * challenge_is_later;
+    out <== challenge_overlaps * challenge_is_later;
 }
 
 template CoinRangesOverlap() {
@@ -270,6 +255,34 @@ template CoinRangesOverlap() {
     signal a1_lte_b1 <== LessEqThan(128)([a[1], b[1]]);
     signal a1_in_b <==  b0_lte_a1 * a1_lte_b1;
     out <== OR()(a <== a0_in_b, b <== a1_in_b);
+}
+
+template ClaimsInOrder() {
+    signal input leaves[2];
+    signal input claims[2][3];
+
+    // If we have a zeroed value, make sure it's followed by a zero, i.e., if the previous value is zero, the current value can't be non-zero
+    signal curr_is_zero <== IsZero()(leaves[1]);
+    signal curr_is_nonzero <== 1 - curr_is_zero;
+    signal prev_is_zero <== IsZero()(leaves[0]);
+    signal following_valid <== NAND()(
+        a <== prev_is_zero,
+        b <== curr_is_nonzero
+    );
+    following_valid === 1;
+
+    // If we have a non-zero value, make sure it's followed by zero or something higher
+    // We start by assigning (a, b)) to (prev_range[1], curr_range[0]) if the !prev_is_zero
+    // If prev_is_zero, (a, b) = (0, 1), which trivially passes our check
+    // Then we check that a < b
+    // Note, there *MUST* be a check in the claiming contract that claim[0] <= claim[1] (which ensures that prev_range[0] <= prev_range[1] and curr_range[0] <= curr_range[1])
+    signal a <-- prev_is_zero ? 0 : claims[0][2];
+    signal b <-- prev_is_zero ? 1 : claims[1][1];
+    signal calculated_leaf_a <== Poseidon(3)(claims[0]);
+    signal calculated_leaf_b <== Poseidon(3)(claims[1]);
+    signal prev_nonzero <== 1 - prev_is_zero;
+    prev_nonzero * (calculated_leaf_a - leaves[0]) === 0;
+    prev_nonzero * (calculated_leaf_b - leaves[1]) === 0;
 }
 
 component main {public [states_root, claim_root, sorted_root]} = Distribute(20, 30, 10); // TODO: select minimum reasonable parameters

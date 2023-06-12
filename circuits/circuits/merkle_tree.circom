@@ -71,11 +71,10 @@ template CheckMerkleProofStrict(levels) {
     signal input pathIndices[levels];
     signal input root;
 
-    calculated_root <== CheckMerkleProof(
+    signal calculated_root <== CheckMerkleProof(levels)(
         leaf,
         pathIndices,
-        pathElements,
-        root
+        pathElements
     );
 
     root === calculated_root;
