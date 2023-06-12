@@ -7,19 +7,19 @@ include "./merkle_tree.circom";
 
 // Distrubte takes a commitment to all claims, validates them, and outputs a commitment to the rightful owners
 // 
-//      1/ We create the undefeated tree. Every claim is added to the undefeated tree,
+//      1/  First, we create the "undefeated" tree. Every valid claim is added to the undefeated tree,
 //          unless the prover provides another claim that supersedes it.
-//      2/ Then we prove that a new tree called the sorted tree contains every value from the undefeated tree.
-//          Then we prove the undefeated tree has every value from the sorted tree. This proves that
-//          they are permutations of each other, except if there are duplicates, which may differ between trees.
-//      3/ We prove that every coin range in the sorted tree is strictly greater than the last (except zero leafs which are all at the end).
+//      2/  Then we prove that the "sorted" tree contains every value from the undefeated tree and vice versa.
+//          This proves that they are permutations of each other, except if there are duplicates, which may differ between trees.
+//      3/  Then we prove that every coin range in the sorted tree is strictly greater than the last (except zero leafs which are all at the end).
 //          I.e., for ranges [a,b] and [c,d], that b < c.
 //          This proves that the only duplicates in the tree are 0 nodes
+//
+// We know that all claims in the sorted tree are disjoint because of step 3, and we know that every valid unchallengable claim is in the sorted tree, because
+// they can only be removed by being invalid or challenged. So we know that the sorted tree consists of the actual exactly the rightful owners (according to the claims).
 // 
-// Distribute has a few properties:
-// - It is deterministic wrt its inputs, so that any can calculate the output root and Merkle proofs they might need from onchain data
-// - It is unjammable, in that it can take any arbitrary claim_root/states_root pair and still be executed
-// - It includes all the actual winners and no other claims
+// Distribute must also be deterministic wrt its inputs, so that any can calculate the output root and Merkle proofs they might need from onchain data.
+// It must also be unjammable, in that it can take any arbitrary claim_root/states_root pair and still be executed.
 //
 // TODO: use recursion/folding rather than interation within the circuit and give the claim Merkle tree a definitive final element to avoid halt early
 template Distribute(claim_levels, state_levels, upper_state_levels) {
@@ -52,6 +52,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     signal input permutation_Indices[2 ** claim_levels];
     signal input reverse_permutation_Indices[2 ** claim_levels];
 
+    // ---- Step 1 ----
     // Ensure that the undefeated tree's elements are identical to the claim tree,
     // except where they're zeroed out when a winning challenge is provided
     for (var i = 0; i < 2 ** claim_levels; i++) {
@@ -69,6 +70,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
     }
 
+    // ---- Step 1 ----
     // Prove that the sorted tree contains all elements in the undefeated tree
     signal hack_1[2**claim_levels][claim_levels]; // ugly placehold variable needed because we can't directly use <-- in anonymous component with an array access (TODO: isolate problem and make upstream issue)
     for (var i = 0; i < 2 ** claim_levels; i++) {
@@ -115,6 +117,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
     }
 
+    // ---- Step 3 ----
     // Verify that sorted tree is sorted, and contains no repitition except 0 leaves at the end
     signal sorted_claims[2 ** claim_levels][3];
     for (var i = 0; i < 2 ** claim_levels; i++) {
@@ -241,10 +244,16 @@ template ClaimIsValid(claim_levels, state_levels) {
         pathElements <== ownership_PathElements,
         pathIndices <== ownership_PathIndices
     );
-    out <== IsEqual()([
+    signal is_in_state <== IsEqual()([
         calculated_root,
         states_root
     ]);
+
+    // Make sure the claim is properly formed
+    // Note, this *should* already be true since all leaves in any state tree are properly formed. This check is a precaution.
+    signal properly_formed <== LessEqThan(128)([claim[1], claim[2]]);
+
+    out <== is_in_state * properly_formed;
 }
 
 // Concatenates 3 arrays
