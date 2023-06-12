@@ -37,12 +37,12 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     // The root and all leaves of the undefeated tree
     signal input undefeated_root;
     signal input undefeated_leaves[2 ** claim_levels];
-    signal input undefeated_pathElements[2 ** claim_levels][state_levels];
+    signal input undefeated_pathElements[2 ** claim_levels][claim_levels];
 
     // The root and all leaves of the final sorted tree
     signal input sorted_root;
     signal input sorted_leaves[2 ** claim_levels];
-    signal input sorted_pathElements[2 ** claim_levels][state_levels];
+    signal input sorted_pathElements[2 ** claim_levels][claim_levels];
     
     // Non deterministic challenges used as advice to prove certain claims are invalid
     // Represented as an index into the claim tree ("ci" = "challenge index")
@@ -70,6 +70,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     }
 
     // Prove that the sorted tree contains all elements in the undefeated tree
+    signal hack_1[2**claim_levels][claim_levels]; // ugly placehold variable needed because we can't directly use <-- in anonymous component with an array access (TODO: isolate problem and make upstream issue)
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the undefeated tree
         CheckMerkleProofStrict(claim_levels)(
@@ -80,15 +81,19 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
 
         // Prove that the ith leaf in the undefeated tree exists in the sorted tree
+        for (var j = 0; j < claim_levels; j++) {
+            hack_1[i][j] <-- sorted_pathElements[permutation_Indices[i]][j];
+        }
         CheckMerkleProofStrict(claim_levels)(
             leaf <== undefeated_leaves[i],
-            pathElements <-- sorted_pathElements[permutation_Indices[i]],
+            pathElements <-- hack_1[i],
             pathIndices <== Num2Bits(claim_levels)(permutation_Indices[i]),
             root <== sorted_root
         );
     }
 
     // Prove that the undefeated tree contains all elements in the sorted tree
+    signal hack_2[2**claim_levels][claim_levels]; // ugly placehold variable needed because we can't directly use <-- in anonymous component with an array access (TODO: isolate problem and make upstream issue)
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the sorted tree
         CheckMerkleProofStrict(claim_levels)(
@@ -99,19 +104,31 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         );
 
         // Prove that the ith leaf in the sorted tree exists in the undefeated tree
+        for (var j = 0; j < claim_levels; j++) {
+            hack_2[i][j] <-- undefeated_pathElements[reverse_permutation_Indices[i]][j];
+        }
         CheckMerkleProofStrict(claim_levels)(
             leaf <== sorted_leaves[i],
-            pathElements <-- undefeated_pathElements[reverse_permutation_Indices[i]],
+            pathElements <== hack_2[i],
             pathIndices <== Num2Bits(claim_levels)(reverse_permutation_Indices[i]),
             root <== undefeated_root
         );
     }
 
     // Verify that sorted tree is sorted, and contains no repitition except 0 leaves at the end
+    signal sorted_claims[2 ** claim_levels][3];
+    for (var i = 0; i < 2 ** claim_levels; i++) {
+        for (var j = 0; j < 3; j++) {
+            sorted_claims[i][j] <-- claims[reverse_permutation_Indices[i]][j];
+        }
+    }
+
     for (var i = 1; i < 2 ** claim_levels; i++) {
         ClaimsInOrder()(
             leaves <== [sorted_leaves[i-1], sorted_leaves[i]],
-            claims <-- [claims[reverse_permutation_Indices[i-1]], claims[reverse_permutation_Indices[i]]]
+            claims <-- [sorted_claims[i-1], sorted_claims[i]]
+            // TODO: pass claims in like this
+            // claims <-- [claims[reverse_permutation_Indices[i-1]], claims[reverse_permutation_Indices[i]]]
         );
     }
 }
@@ -127,7 +144,7 @@ template UndefeatedLeafRootIsValid(claim_levels, state_levels, upper_state_level
 
     signal input undefeated_root;
     signal input undefeated_leaves[2 ** claim_levels];
-    signal input undefeated_pathElements[2 ** claim_levels][state_levels];
+    signal input undefeated_pathElements[2 ** claim_levels][claim_levels];
 
     signal input ci[2 ** claim_levels];
 
@@ -143,15 +160,31 @@ template UndefeatedLeafRootIsValid(claim_levels, state_levels, upper_state_level
 
     // Make sure the challenger is a real leaf in the claim tree with a valid proof of ownership
     // The prover can always find *some* challenger in the tree as long as there is at least one valid claim
-    signal challenges[3] <-- claims[ci[i]];
-    signal challenge_indices[state_levels] <-- ownership_PathIndices[ci[i]];
+    
+    // Challenger and challenge indices are necessary to make sure the ClaimIsValid and ChallengeSucceeds templates are using the same advice values
+    signal challenger[3];
+    for (var j = 0; j < 3; j++) {
+        challenger[j] <-- claims[ci[i]][j];
+    }
+    signal challenge_indices[state_levels];
+
+    // These variables are only needed because of a compiler issue where we can't use <-- directly in the anonymous component
+    signal challenge_state_PathElements[state_levels];
+    for (var j = 0; j < state_levels; j++) {
+        challenge_indices[j] <-- ownership_PathIndices[ci[i]][j];
+        challenge_state_PathElements[j] <-- ownership_PathElements[ci[i]][j];
+    }
+    signal challenge_claim_PathElements[claim_levels];
+    for (var j = 0; j < claim_levels; j++) {
+        challenge_claim_PathElements[j] <-- claim_PathElements[ci[i]][j];
+    }
 
     signal challenge_is_valid <== ClaimIsValid(claim_levels, state_levels)(
         i <-- ci[i],
-        claim <== challenges,
-        ownership_PathElements <-- ownership_PathElements[ci[i]],
+        claim <== challenger,
+        ownership_PathElements <== challenge_state_PathElements,
         ownership_PathIndices <== challenge_indices,
-        claim_PathElements <-- claim_PathElements[ci[i]],
+        claim_PathElements <== challenge_claim_PathElements,
         states_root <== states_root,
         claim_root <== claim_root
     );
@@ -159,7 +192,7 @@ template UndefeatedLeafRootIsValid(claim_levels, state_levels, upper_state_level
 
     signal challenge_succeeds <== ChallengeSucceeds(state_levels, upper_state_levels)(
         defender <== claims[i],
-        challenger <== challenges,
+        challenger <== challenger,
         defender_ownership_indices <== ownership_PathIndices[i],
         challenger_ownership_indices <== challenge_indices
     );
@@ -236,15 +269,15 @@ template concat3(l1, l2, l3) {
 }
 
 template ChallengeSucceeds(state_levels, upper_state_levels) {
-    signal input defender[2];
-    signal input challenger[2];
+    signal input defender[3];
+    signal input challenger[3];
     signal input defender_ownership_indices[state_levels];
     signal input challenger_ownership_indices[state_levels];
     signal output out;
 
     signal challenge_overlaps <== CoinRangesOverlap()(
-        defender,
-        challenger
+        a <== [defender[1], defender[2]], // defender[0] and challenger[0] are addresses
+        b <== [challenger[1], challenger[2]]
     );
 
     // Since the Merkle tree of the states is in order, the block number a claim
@@ -305,4 +338,4 @@ template ClaimsInOrder() {
     prev_nonzero * (calculated_leaf_b - leaves[1]) === 0;
 }
 
-component main {public [states_root, claim_root, sorted_root]} = Distribute(20, 30, 10); // TODO: select minimum reasonable parameters
+component main {public [states_root, claim_root, sorted_root]} = Distribute(2, 5, 3); // TODO: select minimum reasonable parameters
