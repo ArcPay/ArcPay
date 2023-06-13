@@ -167,23 +167,15 @@ template ClaimsInOrder() {
     // Note, since this component is used on the filtered tree, each claim should already have been validated, so claims[i][1] <= claims[i][2]
     // Set passing_claims to values that pass the ordering check
     signal passing_claims[2][3];
-    if (curr_is_nonzero) {
-        for (var i = 0; i < 2; i++) {
-            for (var j = 0; j < 3; j++) {
-                passing_claims[i][j] <-- claims[i][j];
-            }
+    var trivially_passing[2][3] = [[0,0,0],[0,1,0]]; // Upper end of lower range is 0, lower end of upper range is 1
+    for (var i = 0; i < 2; i++) {
+        for (var j = 0; j < 3; j++) {
+            passing_claims[i][j] <-- curr_is_nonzero ? claims[i][j] : trivially_passing[i][j];
         }
-    } else {
-        passing_claims[0][0] <-- 0;
-        passing_claims[0][1] <-- 0;
-        passing_claims[0][2] <-- 0; // Upper end of lower range
-        passing_claims[1][0] <-- 0;
-        passing_claims[1][1] <-- 1; // Lower end of upper range
-        passing_claims[1][2] <-- 0;
     }
     signal calculated_lt <== LessThan(128)(
-        passing_claims[0][2],
-        passing_claims[1][1]
+        [passing_claims[0][2],
+        passing_claims[1][1]]
     );
     calculated_lt === 1;
     
