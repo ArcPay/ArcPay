@@ -72,7 +72,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
 
     // ---- Step 1 ----
     // Prove that the sorted tree contains all elements in the undefeated tree
-    signal hack_1[2**claim_levels][claim_levels]; // ugly placehold variable needed because we can't directly use <-- in anonymous component with an array access (TODO: isolate problem and make upstream issue)
+    signal hack_1[2**claim_levels][claim_levels]; // "hack" signal is workaround for https://github.com/iden3/circom/issues/189
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the undefeated tree
         CheckMerkleProofStrict(claim_levels)(
@@ -95,7 +95,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     }
 
     // Prove that the undefeated tree contains all elements in the sorted tree
-    signal hack_2[2**claim_levels][claim_levels]; // ugly placehold variable needed because we can't directly use <-- in anonymous component with an array access (TODO: isolate problem and make upstream issue)
+    signal hack_2[2**claim_levels][claim_levels]; // "hack" signal is workaround for https://github.com/iden3/circom/issues/189
     for (var i = 0; i < 2 ** claim_levels; i++) {
         // Prove that the advice leaf is the ith leaf in the sorted tree
         CheckMerkleProofStrict(claim_levels)(
@@ -111,7 +111,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         }
         CheckMerkleProofStrict(claim_levels)(
             leaf <== sorted_leaves[i],
-            pathElements <== hack_2[i],
+            pathElements <-- undefeated_pathElements[reverse_permutation_Indices[i]],
             pathIndices <== Num2Bits(claim_levels)(reverse_permutation_Indices[i]),
             root <== undefeated_root
         );
@@ -119,17 +119,18 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
 
     // ---- Step 3 ----
     // Verify that sorted tree is sorted, and contains no repitition except 0 leaves at the end
-    signal sorted_claims[2 ** claim_levels][3];
+    // "hack" signal is workaround for https://github.com/iden3/circom/issues/189
+    signal sorted_claims_hack[2 ** claim_levels][3];
     for (var i = 0; i < 2 ** claim_levels; i++) {
         for (var j = 0; j < 3; j++) {
-            sorted_claims[i][j] <-- claims[reverse_permutation_Indices[i]][j];
+            sorted_claims_hack[i][j] <-- claims[reverse_permutation_Indices[i]][j];
         }
     }
 
     for (var i = 1; i < 2 ** claim_levels; i++) {
         ClaimsInOrder()(
             leaves <== [sorted_leaves[i-1], sorted_leaves[i]],
-            claims <-- [sorted_claims[i-1], sorted_claims[i]]
+            claims <-- [sorted_claims_hack[i-1], sorted_claims_hack[i]]
             // TODO: pass claims in like this
             // claims <-- [claims[reverse_permutation_Indices[i-1]], claims[reverse_permutation_Indices[i]]]
         );
