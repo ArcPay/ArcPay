@@ -2,8 +2,8 @@ pragma circom 2.1.5;
 
 include "./merkle_tree.circom";
 include "./sig.circom";
-include "./efficient_ecdsa/circom-ecdsa-circuits/ecdsa.circom";
-include "./efficient_ecdsa/circom-ecdsa-circuits/zk-identity/eth.circom";
+include "./git_modules/circom-ecdsa/circuits/ecdsa.circom";
+include "./git_modules/circom-ecdsa/circuits/zk-identity/eth.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
