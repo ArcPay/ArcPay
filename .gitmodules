@@ -4,3 +4,9 @@
 [submodule "circuits/circuits/git_modules/circom-ecdsa"]
 	path = circuits/circuits/git_modules/circom-ecdsa
 	url = https://github.com/0xPARC/circom-ecdsa.git
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/poseidon-solidity"]
+	path = lib/poseidon-solidity
+	url = https://github.com/vimwitch/poseidon-solidity
