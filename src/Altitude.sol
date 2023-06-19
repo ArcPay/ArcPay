@@ -28,7 +28,7 @@ contract Altitude is Ownable2Step {
 
     Force[] public forcedInclusions;
 
-    uint maxCoin = 1;
+    uint maxCoin = 0;
 
     constructor(address _owner) {
         _transferOwnership(_owner);
