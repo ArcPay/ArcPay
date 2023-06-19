@@ -21,22 +21,20 @@ template Withdraw(levels, n, k) {
     signal output new_root;
 
     // signature verification.
-    {
-        signal input r[k];
-        signal input s[k];
-        signal input msghash[k];
-        signal input pubkey[2][k];
-        // signature verification.
-        VerifySignature(n, k)(
-            r <== r,
-            s <== s,
-            msghash <== msghash,
-            pubkey <== pubkey,
-            leaf_coins <== leaf_coins,
-            receiver <== recipient,
-            signer <== sender
-        );
-    }
+    signal input r[k];
+    signal input s[k];
+    signal input msghash[k];
+    signal input pubkey[2][k];
+    // signature verification.
+    signal is_sign_valid <== VerifySignature(n, k)(
+        r <== r,
+        s <== s,
+        msghash <== msghash,
+        pubkey <== pubkey,
+        leaf_coins <== leaf_coins,
+        receiver <== recipient,
+        signer <== sender
+    );
 
     {
         // make sure it's a withdraw request by checking recipient is zero and sender is non-zero.
@@ -53,6 +51,7 @@ template Withdraw(levels, n, k) {
     );
 
     signal is_roots_equal <== IsEqual()(in <== [initial_root, initial_root_calculated]);
+    signal is_transaction_valid <== is_sign_valid * is_roots_equal;
 
     // transfer the ownership of the withdrawn coins to zero address and compute the new root.
     signal root_with_deleted_leaf <== CheckMerkleProof(levels)(
@@ -61,7 +60,7 @@ template Withdraw(levels, n, k) {
         pathIndices <== pathIndices
     );
 
-    new_root <== initial_root + is_roots_equal*(root_with_deleted_leaf - initial_root);
+    new_root <== initial_root + is_transaction_valid*(root_with_deleted_leaf - initial_root);
 }
 
 // TODO: decide on the public inputs.

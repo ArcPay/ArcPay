@@ -23,26 +23,12 @@ template Send(levels, n, k) {
     signal input pathElementsForZero[levels];
     signal input pathIndicesForZero[levels];
 
-    signal output new_root;
+    signal input r[k];
+    signal input s[k];
+    signal input msghash[k];
+    signal input pubkey[2][k];
 
-    // signature verification.
-    {
-        // TODO: ensure in smart contract's force_include() fn that signature is valid, otherwise revert.
-        signal input r[k];
-        signal input s[k];
-        signal input msghash[k];
-        signal input pubkey[2][k];
-        // signature verification.
-        VerifySignature(n, k)(
-            r <== r,
-            s <== s,
-            msghash <== msghash,
-            pubkey <== pubkey,
-            leaf_coins <== leaf_coins,
-            receiver <== recipient,
-            signer <== sender
-        );
-    }
+    signal output new_root;
 
     // make sure it's a send request by checking sender and recipient is non-zero
     {
@@ -52,12 +38,24 @@ template Send(levels, n, k) {
         is_recipient_zero === 0;
     }
 
+    // signature verification.
+    // TODO: ensure in smart contract that slashing is not done for invalid signatures.
+    signal is_sign_valid <== VerifySignature(n, k)(
+        r <== r,
+        s <== s,
+        msghash <== msghash,
+        pubkey <== pubkey,
+        leaf_coins <== leaf_coins,
+        receiver <== recipient,
+        signer <== sender
+    );
+
     // To process a transaction we:
     // - Delete the old leaf
     // - Insert 2 new leaves
     //
     // We then output the new root from the circuit
-    signal is_transaction_valid <== Validate(levels)(
+    signal is_transition_valid <== Validate(levels)(
         initial_root <== initial_root,
         highest_coin_to_send <== highest_coin_to_send,
         signature <== signature,
@@ -67,6 +65,8 @@ template Send(levels, n, k) {
         pathElements <== pathElements,
         pathIndices <== pathIndices
     );
+
+    signal is_transaction_valid <== is_sign_valid * is_transition_valid;
 
     // determine the new leaf corresponding to sender.
     // If sending all coins, we replace it with 0; otherwise we replace it with the remaining coins.

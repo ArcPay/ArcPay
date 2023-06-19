@@ -12,6 +12,8 @@ template VerifySignature(n, k) {
     signal input receiver;
     signal input signer;
 
+    signal output is_valid;
+
     // message hash check
     {
         signal msghash_computed <== Poseidon(3)(inputs <== [leaf_coins[0], leaf_coins[1], receiver]);
@@ -34,11 +36,13 @@ template VerifySignature(n, k) {
         pubkey <== pubkey
     );
 
-    result === 1;
+    // result === 1;
 
     signal signer_computed <== PubkeyToAddress()(
         pubkeyBits <== FlattenPubkey(n, k)(chunkedPubkey <== pubkey)
     );
 
-    signer_computed === signer;
+    signal is_signer_valid <== IsZero()(in <== signer_computed - signer);
+
+    is_valid <== result * is_signer_valid;
 }
