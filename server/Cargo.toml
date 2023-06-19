@@ -1,0 +1,12 @@
+[package]
+name = "merklers"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "a6e15489ea2c6b809ab2381dd27f4561d9c17e00" }
+utils = { git = "https://github.com/vacp2p/zerokit.git", rev = "be88a432d7ac58d02371025f909ba087d0a013c0" }
+rln = { git = "https://github.com/vacp2p/zerokit.git", rev = "be88a432d7ac58d02371025f909ba087d0a013c0" }
+hex-literal = "0.4.1"

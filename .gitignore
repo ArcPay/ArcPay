@@ -1,6 +1,7 @@
 # Compiler files
 cache/
 out/
+target/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -17,4 +18,3 @@ node_modules
 
 circuits/circuits/powers_of_tau
 circuits/circuits/build
-operator/build
