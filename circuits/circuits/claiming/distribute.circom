@@ -47,7 +47,7 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
     signal input sorted_pathElements[2 ** claim_levels][claim_levels];
     
     // Non deterministic challenges used as advice to prove certain claims are invalid
-    // Represented as an index into the claim tree (ci = "challenger_indices")
+    // "ci" means "challenger index." The index points to a claim in the claim tree to be used as a challenge
     signal input ci[2 ** claim_levels];
 
     // Non deterministic advice for proving that the filtered and sorted trees are equivalent
@@ -84,25 +84,25 @@ template Distribute(claim_levels, state_levels, upper_state_levels) {
         // Ensure that the filtered leaf is valid given the claim leaf and challenge advice
         FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i)(
             // Merkle roots
-            states_history_root,
-            claim_root,
-            filtered_root,
+            states_history_root <== states_history_root,
+            claim_root <== claim_root,
+            filtered_root <== filtered_root,
 
             // Defender
-            claims[i],
-            state_PathElements[i],
-            state_PathIndices[i],
-            claim_PathElements[i],
+            defender <== claims[i],
+            defender_state_PathElements <== state_PathElements[i],
+            defender_state_PathIndices <== state_PathIndices[i],
+            defender_claim_PathElements <== claim_PathElements[i],
 
             // Challenger
-            ci[i],
-            challenger[i],
-            challenge_state_PathElements[i],
-            challenger_state_PathIndices[i],
-            challenge_claim_PathElements[i],
+            challenger_index <== ci[i],
+            challenger <== challenger[i],
+            challenger_state_PathElements <== challenge_state_PathElements[i],
+            challenger_state_PathIndices <== challenger_state_PathIndices[i],
+            challenger_claim_PathElements <== challenge_claim_PathElements[i],
 
             // Results
-            filtered_pathElements[i]
+            filtered_pathElements <== filtered_pathElements[i]
         );
     }
 
@@ -220,8 +220,8 @@ template ClaimsInOrder() {
     calculated_lt === 1;
     
     // Ensure that the claims hash to the provided leaves for all non-zero leaves
-    signal calculated_leaf_a <== Poseidon(3)(claims[0]);
-    signal calculated_leaf_b <== Poseidon(3)(claims[1]);
+    signal calculated_leaf_a <== Poseidon(3)(passing_claims[0]);
+    signal calculated_leaf_b <== Poseidon(3)(passing_claims[1]);
     curr_is_nonzero * (calculated_leaf_a - leaves[0]) === 0;
     curr_is_nonzero * (calculated_leaf_b - leaves[1]) === 0;
 }

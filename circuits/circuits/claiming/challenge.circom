@@ -27,7 +27,7 @@ template FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i) 
     // Results
     signal input filtered_pathElements[claim_levels];
 
-    signal claim_is_valid <== ClaimIsValid(claim_levels, state_levels)(
+    signal claim_is_valid <== IsValidClaim(claim_levels, state_levels)(
         i,
         defender,
         defender_state_PathElements,
@@ -39,7 +39,7 @@ template FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i) 
 
     // Make sure the challenger is a real leaf in the claim tree with a valid proof of ownership
     // The prover can always find *some* challenger in the tree as long as there is at least one valid claim
-    signal challenge_is_valid <== ClaimIsValid(claim_levels, state_levels)(
+    signal is_valid_challenge <== IsValidClaim(claim_levels, state_levels)(
         challenger_index,
         challenger,
         challenger_state_PathElements,
@@ -48,9 +48,9 @@ template FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i) 
         states_history_root,
         claim_root
     );
-    challenge_is_valid === 1;
+    is_valid_challenge === 1;
 
-    signal challenge_succeeds <== ChallengeSucceeds(state_levels, upper_state_levels)(
+    signal is_successful_challenge <== IsSuccessfulChallenge(state_levels, upper_state_levels)(
         defender <== defender,
         challenger <== challenger,
         defender_state_indices <== defender_state_PathIndices,
@@ -58,7 +58,7 @@ template FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i) 
     );
 
     // if the claim is valid and the challenge doesn't succeed, the leaves in the claim and filtered trees should be equal
-    signal should_be_equal <== claim_is_valid * (1 - challenge_succeeds);
+    signal should_be_equal <== claim_is_valid * (1 - is_successful_challenge);
     signal claim_hash <== Poseidon(3)(defender);
     signal filtered_leaf <== claim_hash * should_be_equal;
     CheckMerkleProofStrict(claim_levels)(
@@ -71,7 +71,7 @@ template FilteredLeafIsValid(claim_levels, state_levels, upper_state_levels, i) 
 
 // Asserts that the claim is in the claim tree
 // Returns whether the claim is properly formed and is in the state history
-template ClaimIsValid(claim_levels, state_levels) {
+template IsValidClaim(claim_levels, state_levels) {
     signal input i;
     signal input claim[3];
     signal input state_PathElements[state_levels];
@@ -116,7 +116,7 @@ template ClaimIsValid(claim_levels, state_levels) {
     out <== is_in_state * properly_formed;
 }
 
-template ChallengeSucceeds(state_levels, upper_state_levels) {
+template IsSuccessfulChallenge(state_levels, upper_state_levels) {
     signal input defender[3];
     signal input challenger[3];
     signal input defender_state_indices[state_levels];
