@@ -17,3 +17,4 @@ node_modules
 
 circuits/circuits/powers_of_tau
 circuits/circuits/build
+operator/build
