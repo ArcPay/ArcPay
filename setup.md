@@ -4,6 +4,7 @@
 - All circuit specific code is in [./circuits](./circuits) directory. Circuits are written in circom.
 
 To run and test smart contracts:
+- forge install
 - forge test
 
 For circuits:

@@ -16,7 +16,7 @@ struct OwnershipRequest {
     uint coin;
     uint block_number;
     uint time;
-    uint response;
+    bytes32 responseHash;
 }
 
 contract Altitude is Ownable2Step {
@@ -57,7 +57,7 @@ contract Altitude is Ownable2Step {
 
     function forceInclude(address receiver, uint[2] calldata leafCoins, uint highestCoinToSend, bytes memory signature) external {
         require(highestCoinToSend < maxCoin, ERROR_FORCE_NO_COIN);
-        uint hash = PoseidonT5.hash([signature, highestCoinToSend, uint(uint160(receiver))]);
+        uint hash = PoseidonT5.hash([leafCoins[0], leafCoins[1], highestCoinToSend, uint(uint160(receiver))]);
         require(msg.sender == ECDSA.recover(bytes32(hash), signature));
 
         forcedInclusions.push(Force({
@@ -89,7 +89,7 @@ contract Altitude is Ownable2Step {
             coin: coin,
             block_number: block_number,
             time: block.timestamp,
-            response: 0,
+            responseHash: 0
         }));
     }
 
@@ -100,14 +100,14 @@ contract Altitude is Ownable2Step {
         // SLASH
     }
 
-    function respondToOwnershipRequest(uint i, bool[DEPTH] pathIndices, uint[DEPTH] pathElements, uint lower_coin, uint upper_coin, uint owner) external {
+    function respondToOwnershipRequest(uint i, bool[DEPTH] calldata pathIndices, uint[DEPTH] calldata pathElements, uint lower_coin, uint upper_coin, uint owner) external {
         require(ownershipRequests[i].time != 0, ERROR_DOUBLE_RESPONSE);
         ownershipRequests[i].time = 0;
-        ownershipRequests[i].response = keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner));
+        ownershipRequests[i].responseHash = keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner));
     }
 
-    function slashForInvalidOwnershipProof(uint i, bool[DEPTH] pathIndices, uint[DEPTH] pathElements, uint lower_coin, uint upper_coin, uint owner) {
-        require(keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner)) == ownershipRequests[i].response, ERROR_NONMATCHING_RESPONSE);
+    function slashForInvalidOwnershipProof(uint i, bool[DEPTH] calldata pathIndices, uint[DEPTH] calldata pathElements, uint lower_coin, uint upper_coin, uint owner) external {
+        require(keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner)) == ownershipRequests[i].responseHash, ERROR_NONMATCHING_RESPONSE);
         // TODO: require that the proof is valid for that `block_number`th block in stateHistory
 
         // Slash
