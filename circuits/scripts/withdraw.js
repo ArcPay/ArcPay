@@ -1,4 +1,3 @@
-import { expect, assert } from 'chai';
 import { ProjectivePoint, signAsync } from '@noble/secp256k1';
 import { default as vmtree } from 'vmtree-sdk';
 
@@ -15,18 +14,6 @@ class MerkleTree extends FixedMerkleTree {
 
 const stateTree = new MerkleTree({ hasher: vmtree.poseidon, levels: 3, zero: 0 });
 
-function bigint_to_tuple(x/*: bigint*/) {
-    let mod/*: bigint*/ = 2n ** 64n;
-    let ret = [0n, 0n, 0n, 0n];
-
-    var x_temp = x;
-    for (var idx = 0; idx < ret.length; idx++) {
-        ret[idx] = x_temp % mod;
-        x_temp = x_temp / mod;
-    }
-    return ret;
-}
-
 function bigint_to_array(n/*: number*/, k/*: number*/, x/*: bigint*/) {
     let mod = 1n;
     for (var idx = 0; idx < n; idx++) {
@@ -42,36 +29,12 @@ function bigint_to_array(n/*: number*/, k/*: number*/, x/*: bigint*/) {
     return ret;
 }
 
-// converts x = sum of a[i] * 2 ** (small_stride * i) for 0 <= 2 ** small_stride - 1
-//      to:     sum of a[i] * 2 ** (stride * i)
-function get_strided_bigint(stride/*: bigint*/, small_stride/*: bigint*/, x/*: bigint*/) {
-    var ret = 0n;
-    var exp = 0n;
-    while (x > 0) {
-        var mod = x % (2n ** small_stride);
-        ret = ret + mod * (2n ** (stride * exp));
-        x = x / (2n ** small_stride);
-        exp = exp + 1n;
-    }
-    return ret;
-}
-
 // bigendian
 function bigint_to_Uint8Array(x) {
     var ret = new Uint8Array(32);
     for (var idx = 31; idx >= 0; idx--) {
         ret[idx] = Number(x % 256n);
         x = x / 256n;
-    }
-    return ret;
-}
-
-// bigendian
-function Uint8Array_to_bigint(x) {
-    var ret = 0n;
-    for (var idx = 0; idx < x.length; idx++) {
-        ret = ret * 256n;
-        ret = ret + BigInt(x[idx]);
     }
     return ret;
 }
@@ -114,7 +77,7 @@ async function generateInput(privKey, sender, receiver, leafCoins, leafIndex) {
     return input;
 }
 
-// user0 sends [0,9] from first leaf to user1
+// user0 withdraws the first leaf.
 const input0 = await generateInput(privkeys[0], ethAddrsBigInt[0], 0n, [0n, 10n], 0);
 
 stateTree.update(0, vmtree.poseidon([0, 0, 10]));
