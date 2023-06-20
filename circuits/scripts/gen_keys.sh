@@ -24,7 +24,7 @@ TRUSTED_SETUP_DIR=$BUILD_DIR/trusted_setup
 
 PROOF_DIR=../circuits/proof_data
 
-CIRCUIT_NAME=withdraw
+CIRCUIT_NAME=mint
 CIRCUIT_PATH=../circuits/$CIRCUIT_NAME
 
 if [ ! -d "$BUILD_DIR" ]; then
@@ -51,13 +51,13 @@ if [ ! -f "$COMPILED_DIR"/"$CIRCUIT_NAME".r1cs ]; then
     echo "**** COMPILING CIRCUIT $CIRCUIT_PATH.circom ****"
     echo $COMPILED_DIR
     start=`date +%s`
-    echo circom "$CIRCUIT_PATH.circom" --O1 --r1cs --wasm --c --sym --output "$COMPILED_DIR"
-    circom "$CIRCUIT_PATH.circom" --O1 --r1cs --wasm --c --sym --output "$COMPILED_DIR"
+    echo circom "$CIRCUIT_PATH.circom" --O1 --r1cs --wasm --c --prime vesta --sym --output "$COMPILED_DIR"
+    circom "$CIRCUIT_PATH.circom" --O1 --r1cs --wasm --c --prime vesta --sym --output "$COMPILED_DIR"
     end=`date +%s`
     echo "DONE ($((end-start))s)"
 fi
 
-# COMMENTING FROM HERE FOR COMPILE ONLY PIPELINE
+# COMMENTING FROM HERE FOR NOT COMPATIBLE WITH NOVA SCOTIA CIRCOM
 
 # echo "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey"
 # if [ ! -f "$COMPILED_DIR/${CIRCUIT_NAME}_0000.zkey" ]
