@@ -1,5 +1,8 @@
 pragma circom 2.1.5;
 
+include "./git_modules/circom-ecdsa/circuits/ecdsa.circom";
+include "./git_modules/circom-ecdsa/circuits/zk-identity/eth.circom";
+
 // TODO: do we need to check that all registers of r,s fit in n bits?
 // Note: The n-bit check is done for pubkey in FlattenPubkey circuit.
 template VerifySignature(hashIns, n, k) {

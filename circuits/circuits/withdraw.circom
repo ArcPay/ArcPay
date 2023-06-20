@@ -2,8 +2,6 @@ pragma circom 2.1.5;
 
 include "./merkle_tree.circom";
 include "./sig.circom";
-include "./git_modules/circom-ecdsa/circuits/ecdsa.circom";
-include "./git_modules/circom-ecdsa/circuits/zk-identity/eth.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 // If the sender is the 0 address, the transaction is a mint request,
@@ -28,13 +26,12 @@ template Withdraw(levels, n, k) {
     signal input msghash[k];
     signal input pubkey[2][k];
     // signature verification.
-    signal is_sign_valid <== VerifySignature(n, k)(
+    signal is_sign_valid <== VerifySignature(3, n, k)(
         r <== r,
         s <== s,
         msghash <== msghash,
         pubkey <== pubkey,
-        leaf_coins <== leaf_coins,
-        receiver <== recipient,
+        msg <== [leaf_coins[0], leaf_coins[1], recipient],
         signer <== sender
     );
 
