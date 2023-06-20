@@ -6,6 +6,8 @@ use hex_literal::hex;
 use rln::circuit::Fr as Fp;
 
 struct MemoryDB(HashMap<DBKey, Value>);
+
+#[derive(Clone)]
 struct MyPoseidon(PoseidonHash);
 
 #[derive(Default)]
@@ -66,10 +68,16 @@ fn main() {
     assert_eq!(mt.capacity(), 4);
     assert_eq!(mt.depth(), 2);
 
-    mt.update_next(MyPoseidon::deserialize(hex!(
+    let leaf = MyPoseidon::deserialize(hex!(
         "c1ba1812ff680ce84c1d5b4f1087eeb08147a4d510f3496b2849df3a73f5af95"
-    ).to_vec()))
-    .unwrap();
+    ).to_vec());
+    mt.update_next(leaf).unwrap();
 
+    dbg!(leaf);
     dbg!(mt.root());
+    let proof = mt.proof(0).unwrap();
+    dbg!(&proof.0);
+    let leaf = mt.get(0).unwrap();
+    dbg!(leaf);
+    dbg!(mt.verify(&leaf, &proof));
 }
