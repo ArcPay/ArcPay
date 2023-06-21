@@ -2,17 +2,15 @@ pragma circom 2.1.5;
 
 include "./merkle_tree.circom";
 include "./sig.circom";
-include "./git_modules/circom-ecdsa/circuits/ecdsa.circom";
-include "./git_modules/circom-ecdsa/circuits/zk-identity/eth.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 // If the sender is the 0 address, the transaction is a mint request,
 // if the recipient is 0, the transaction is a withdrawal, if neither are
 // 0 it's an L2->L2 send, and both can't be 0.
 template Withdraw(levels, n, k) {
+    signal input step_in;
     signal input sender;
     signal input recipient;
-    signal input initial_root;
 
     signal input leaf_coins[2];
     signal input pathElements[levels];
@@ -20,19 +18,20 @@ template Withdraw(levels, n, k) {
 
     signal output new_root;
 
+    signal initial_root <== step_in;
+
     // signature verification.
     signal input r[k];
     signal input s[k];
     signal input msghash[k];
     signal input pubkey[2][k];
     // signature verification.
-    signal is_sign_valid <== VerifySignature(n, k)(
+    signal is_sign_valid <== VerifySignature(3, n, k)(
         r <== r,
         s <== s,
         msghash <== msghash,
         pubkey <== pubkey,
-        leaf_coins <== leaf_coins,
-        receiver <== recipient,
+        msg <== [leaf_coins[0], leaf_coins[1], recipient],
         signer <== sender
     );
 
@@ -64,4 +63,4 @@ template Withdraw(levels, n, k) {
 }
 
 // TODO: decide on the public inputs.
-component main { public [initial_root] } = Withdraw(3, 64, 4);
+component main { public [step_in] } = Withdraw(3, 64, 4);
