@@ -9,10 +9,10 @@ edition = "2021"
 pmtree = { git = "https://github.com/Rate-Limiting-Nullifier/pmtree", rev = "a6e15489ea2c6b809ab2381dd27f4561d9c17e00" }
 utils = { git = "https://github.com/vacp2p/zerokit.git", rev = "be88a432d7ac58d02371025f909ba087d0a013c0" }
 rln = { git = "https://github.com/vacp2p/zerokit.git", rev = "be88a432d7ac58d02371025f909ba087d0a013c0" }
-hex-literal = "0.4.1"
 async-graphql = "5.0.10"
 tokio = { version = "1", features = ["full"] }
 k256 = { version = "0.13.1", features = ["ecdsa"] }
 axum = "0.6.18"
 async-graphql-axum = "5.0.10"
 serde = "1.0.164"
+futures = "0.3.28"
