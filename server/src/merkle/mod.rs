@@ -1,7 +1,7 @@
 use pmtree::PmtreeErrorKind::DatabaseError;
 use std::collections::HashMap;
 use pmtree::{MerkleTree, DBKey, Value, PmtreeResult, DatabaseErrorKind, Database, Hasher};
-use rln::{hashers::PoseidonHash, utils::{fr_to_bytes_le, bytes_le_to_fr}};
+use rln::{hashers::PoseidonHash, utils::{fr_to_bytes_be, bytes_be_to_fr}};
 // use hex_literal::hex;
 use rln::circuit::Fr as Fp;
 
@@ -47,13 +47,12 @@ impl Hasher for MyPoseidon {
         Self::Fr::from(0)
     }
 
-
     fn serialize(value: Self::Fr) -> Value {
-        fr_to_bytes_le(&value)
+        fr_to_bytes_be(&value)
     }
 
     fn deserialize(value: Value) -> Self::Fr {
-        bytes_le_to_fr(&value).0 // TODO: confirm if .1 is required
+        bytes_be_to_fr(&value).0 // TODO: confirm if .1 is required
     }
 
     fn hash(input: &[Self::Fr]) -> Self::Fr {
