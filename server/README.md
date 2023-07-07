@@ -67,7 +67,7 @@ reference for graphql server: https://oliverjumpertz.com/how-to-build-a-powerful
 - Run `psql`.
 - Create a user `dev` to manage db.
 - Create arcpay database which will host all our tables: `create databse arcpay`.
-- Create table to store continuously updating merkle tree ("state merkle tree" vs "contract state merkle tree" which is attached to the root stored in contract).
+- Create table to store continuously updating merkle tree ("state merkle tree" vs "contract state merkle tree" which is attached to the root stored in contract):
   ```sql
   CREATE TABLE state_tree (
     leaf bigint,
@@ -79,3 +79,14 @@ reference for graphql server: https://oliverjumpertz.com/how-to-build-a-powerful
     UNIQUE (leaf)
   );
   ```
+- Insert into table:
+  ```sql
+  INSERT INTO state_tree (leaf, owner, coin_low, coin_high, index)
+  VALUES (123456789, 1, 1000, 5000, 10);
+  ```
+
+## RabbitMQ setup
+- Install rabbitMQ locally.
+- Create a local rabbitMQ server with default settings:
+  - Should be accessible at `amqp://guest:guest@localhost:5672`.
+  - You can open `http://localhost:15672/` and use `guest` as username & password.
