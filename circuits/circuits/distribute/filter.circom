@@ -34,21 +34,29 @@ template Filter(coin_bits, history_depth, state_depth, filtered_depth, field_siz
     // The keccak chain has the form H(a_n, H(a_n-1, H(a_n-2, ...))). The first argument to H is a full claim, and the second is the previous value, and the base case is 0.
     // We unwind it from the outside and return the previous accumulator.
     component keccak = Keccak(
-        160 + 2 * coin_bits + history_depth + state_depth * field_size + state_depth + 256,
+        160 + 2 * coin_bits + history_depth +
+        0 +
+        // state_depth * field_size +
+        state_depth + 256,
         256
     );
-    keccak.in <== concat8(160, coin_bits, coin_bits, history_depth, state_depth * field_size, state_depth, 128, 128)(
-        Num2Bits(160)(in <== address),
+    keccak.in <== concat8(160, coin_bits, coin_bits, history_depth,
+    0,
+    // state_depth * field_size,
+    state_depth, 128, 128)(
+        Num2Bits(160)(address),
         Num2Bits(coin_bits)(first_coin),
         Num2Bits(coin_bits)(last_coin),
         Num2Bits(history_depth)(block_number),
-        MultiNum2Bits(state_depth, field_size)(state_pathElements),
+        Num2Bits(0)(0),
+        // TODO: add the state_pathElements again. Otherwise the prover is free to chose an arbitrary merkle proof for each claim.
+        // MultiNum2Bits(state_depth, field_size)(state_pathElements),
         Num2Bits(state_depth)(state_pathIndex),
         Num2Bits(128)(next_claim_chain[0]),
         Num2Bits(128)(next_claim_chain[1])
     );
 
-    signal claim_chain_bits[256] <== MultiNum2Bits(2, 128)(in <== claim_chain);
+    signal claim_chain_bits[256] <== MultiNum2Bits(2, 128)(claim_chain);
     for (var i = 0; i < 256; i++) {
         keccak.out[i] === claim_chain_bits[i];
     }
@@ -64,25 +72,24 @@ template Filter(coin_bits, history_depth, state_depth, filtered_depth, field_siz
     );
 
     // Figure out whether the claim exists in the state root
-    assert(address + 2 * coin_bits + history_depth < 254);
-    signal claim_leaf <== address * (coin_bits^2) * history_depth + 
-        first_coin * coin_bits * history_depth + 
-        last_coin * history_depth + 
-        block_number;
+    assert(address + 2 * coin_bits < 254);
+    signal claim_leaf <== address * (coin_bits ** 2) +
+        first_coin * coin_bits +
+        last_coin;
 
     signal state_root_calculated <== CheckMerkleProof(state_depth)(
         leaf <== claim_leaf, // TODO: make sure leaves are represented as a single field element in state transition function
         pathElements <== state_pathElements,
         pathIndices <== Num2Bits(state_depth)(state_pathIndex)
     );
-    signal claim_is_valid <== IsEqual()(in <== [state_root, state_root_calculated]);
+    signal claim_is_valid <== IsEqual()([state_root, state_root_calculated]);
 
     // If the claim exists in the state root, add it to the processed claims
     signal updated_filtered_root <== UpdateLeaf(filtered_depth)(
         old_leaf <== 0,
         new_leaf <== claim_leaf,
         pathElements <== filtered_pathElements,
-        pathIndices <== Num2Bits(filtered_depth)( in <== filtered_count),
+        pathIndices <== Num2Bits(filtered_depth)(filtered_count),
         old_root <== filtered_root
     );
 
@@ -126,42 +133,42 @@ template concat8(l1,l2,l3,l4,l5,l6,l7,l8) {
 
     var prev = 0;
     for (var i = 0; i < l1; i++) {
-        out[i] <== i1[i + prev];
+        out[i + prev] <== i1[i];
     }
 
     prev += l1;
     for (var i = 0; i < l2; i++) {
-        out[i] <== i2[i + prev];
+        out[i + prev] <== i2[i];
     }
 
     prev += l2;
     for (var i = 0; i < l3; i++) {
-        out[i] <== i3[i + prev];
+        out[i + prev] <== i3[i];
     }
 
     prev += l3;
     for (var i = 0; i < l4; i++) {
-        out[i] <== i4[i + prev];
+        out[i + prev] <== i4[i];
     }
 
     prev += l4;
     for (var i = 0; i < l5; i++) {
-        out[i] <== i5[i + prev];
+        out[i + prev] <== i5[i];
     }
 
     prev += l5;
     for (var i = 0; i < l6; i++) {
-        out[i] <== i6[i + prev];
+        out[i + prev] <== i6[i];
     }
 
     prev += l6;
     for (var i = 0; i < l7; i++) {
-        out[i] <== i7[i + prev];
+        out[i + prev] <== i7[i];
     }
 
     prev += l7;
     for (var i = 0; i < l8; i++) {
-        out[i] <== i8[i + prev];
+        out[i + prev] <== i8[i];
     }
 }
 
