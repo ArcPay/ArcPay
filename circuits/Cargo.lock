@@ -250,6 +250,7 @@ dependencies = [
  "ff",
  "nova-scotia",
  "nova-snark",
+ "pasta_curves",
  "serde",
  "serde_json",
 ]
