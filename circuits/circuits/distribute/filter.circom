@@ -17,6 +17,7 @@ template Filter(coin_bits, history_depth, state_depth, filtered_depth, field_siz
     signal output step_out[5];
 
     // private inputs
+    // advice
     signal input next_claim_chain[2];
     signal input history_pathElements[history_depth];
     signal input state_root;

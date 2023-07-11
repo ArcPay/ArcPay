@@ -1,5 +1,6 @@
-use std::{collections::HashMap, env::current_dir, time::Instant};
+use std::{clone, collections::HashMap, env::current_dir, time::Instant};
 
+use ff::PrimeField;
 use nova_scotia::{
     circom::reader::load_r1cs, create_public_params, create_recursive_circuit, FileLocation, F1,
     G2, S1, S2,
@@ -7,20 +8,39 @@ use nova_scotia::{
 use nova_snark::{traits::Group, CompressedSNARK};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use ff::PrimeField;
+use serde_json::Value;
 
-#[derive(Serialize, Deserialize)]
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(non_snake_case)]
 struct Mint {
     step_in: [String; 2],
-    sender: Vec<String>,
-    recipient: Vec<String>,
-    leaf_coins: Vec<[String; 2]>,
-    mintPathElements: Vec<Vec<String>>,
-    mintPathIndices: Vec<Vec<String>>,
-    pathElements: Vec<Vec<String>>,
-    pathIndices: Vec<Vec<String>>,
+    private_inputs: Vec<MintRound>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(non_snake_case)]
+struct MintRound {
+    sender: String,
+    recipient: String,
+    leaf_coins: [String; 2],
+    mintPathElements: Vec<String>,
+    mintPathIndices: Vec<String>,
+    pathElements: Vec<String>,
+    pathIndices: Vec<String>,
+}
+
+impl MintRound {
+    fn circuit_inputs(&self) -> HashMap<String, Value> {
+        let mut h = HashMap::new();
+        h.insert("sender".to_string(), json!(self.sender));
+        h.insert("recipient".to_string(), json!(self.recipient));
+        h.insert("leaf_coins".to_string(), json!(self.leaf_coins));
+        h.insert("mintPathElements".to_string(), json!(self.mintPathElements));
+        h.insert("mintPathIndices".to_string(), json!(self.mintPathIndices));
+        h.insert("pathElements".to_string(), json!(self.pathElements));
+        h.insert("pathIndices".to_string(), json!(self.pathIndices));
+        h
+    }
 }
 
 pub fn nova(iteration_count: usize) {
@@ -39,43 +59,13 @@ pub fn nova(iteration_count: usize) {
         F1::from_str_vartime(&mint_data.step_in[1]).unwrap(),
     ];
 
-    let mut private_inputs = Vec::new();
+    let private_inputs = mint_data
+        .private_inputs
+        .iter()
+        .map(|v| v.circuit_inputs())
+        .collect();
 
-    for i in 0..iteration_count {
-        let mut private_input = HashMap::new();
-        private_input.insert(
-            "sender".to_string(),
-            json!(mint_data.sender[i]),
-        );
-        private_input.insert(
-            "recipient".to_string(),
-            json!(mint_data.recipient[i]),
-        );
-        private_input.insert(
-            "leaf_coins".to_string(),
-            json!(mint_data.leaf_coins[i]),
-        );
-        private_input.insert(
-            "mintPathElements".to_string(),
-            json!(mint_data.mintPathElements[i]),
-        );
-        private_input.insert(
-            "mintPathIndices".to_string(),
-            json!(mint_data.mintPathIndices[i]),
-        );
-        private_input.insert(
-            "pathElements".to_string(),
-            json!(mint_data.pathElements[i]),
-        );
-        private_input.insert(
-            "pathIndices".to_string(),
-            json!(mint_data.pathIndices[i]),
-        );
-
-        private_inputs.push(private_input);
-    }
     dbg!(&private_inputs);
-
 
     let pp = create_public_params(r1cs.clone());
 
