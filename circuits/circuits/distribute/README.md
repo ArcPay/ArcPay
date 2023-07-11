@@ -1,10 +1,9 @@
 # Circuits
 
-ZKPs are used for two purposes in Altitude: state transition, and distribution after shutdown.
-The state transition circuit handles minting, withdrawing, and sending money.
+As well as being used to enforce the state transition function, ZKPs are used to handle distribution after shutdown.
 The distribution circuits take a set of claims over coins and output the rightful final owners given those claims.
 
-## Distribution
+## Algorithm
 
 Distribution involves 3 parts:
     - Filter out any claim that is invalid (i.e., did not occur in the state history)
