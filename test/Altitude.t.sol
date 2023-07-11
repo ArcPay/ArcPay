@@ -2,13 +2,13 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "../src/Altitude.sol";
+import "../src/ArcPay.sol";
 
-contract AltitudeTest is Test {
-    Altitude public alt;
+contract ArcPayTest is Test {
+    ArcPay public alt;
 
     function setUp() public {
-        alt = new Altitude(address(this));
+        alt = new ArcPay(address(this));
     }
 
 }
