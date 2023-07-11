@@ -1,4 +1,3 @@
-// const chalk = require('chalk');
 import { expect }  from 'chai';
 import { default as vmtree } from 'vmtree-sdk';
 
