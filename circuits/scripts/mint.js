@@ -47,9 +47,7 @@ expect(verifyMerkleProof({
     pathIndices: pi1
 })).to.be.true;
 
-console.log(stateTree.root);
 stateTree.update(0, 0);
-console.log(stateTree.root);
 const { pathIndices: si1, pathElements: se1 } = stateTree.path(0);
 
 const input1 = vmtree.utils.stringifyBigInts({
@@ -63,7 +61,7 @@ const input1 = vmtree.utils.stringifyBigInts({
     pathIndices: si1
 });
 
-console.log('input1', JSON.stringify(input1));
+// console.log('input1', JSON.stringify(input1));
 
 // prepare trees for next mint
 mintTree.update(0,0);
@@ -90,7 +88,7 @@ const input2 = vmtree.utils.stringifyBigInts({
     pathIndices: si2
 });
 
-console.log('input2', JSON.stringify(input2));
+// console.log('input2', JSON.stringify(input2));
 
 let novaJson = {};
 
@@ -98,4 +96,4 @@ for (var k in input1) {
     novaJson[k] = [input1[k], input2[k]];
 }
 novaJson.step_in = input1.step_in;
-console.log('novaJson', JSON.stringify(novaJson));
+console.log(JSON.stringify(novaJson, (_, v) => typeof v === "number" ? v.toString(): v, 4));
