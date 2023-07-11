@@ -6,4 +6,4 @@ mod send;
 mod withdraw;
 
 // Post shutdown distribution
-// mod filter;
+mod filter;

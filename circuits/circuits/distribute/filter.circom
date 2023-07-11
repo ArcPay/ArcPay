@@ -191,4 +191,7 @@ template concat8(l1,l2,l3,l4,l5,l6,l7,l8) {
 // TODO: does poseidon work the same over both grumpkin and bn254, or does it depend on our scalar field?
 // 
 // TODO: document global parameter choice at a higher level - these are relevant to the state transition circuit too
-component main { public [step_in] } = Filter(40, 14, 40, 40, 254);
+// component main { public [step_in] } = Filter(40, 14, 40, 40, 254);
+
+// TODO: have a different file for testing parameters
+component main { public [step_in] } = Filter(40, 3, 3, 3, 254);
