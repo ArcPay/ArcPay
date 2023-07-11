@@ -1,5 +1,5 @@
-use std::{clone, collections::HashMap, env::current_dir, time::Instant};
-
+use circuit_input_macro::NovaCircuitInput;
+use circuit_input_macro_derive::NovaCircuitInput;
 use ff::PrimeField;
 use nova_scotia::{
     circom::reader::load_r1cs, create_public_params, create_recursive_circuit, FileLocation, F1,
@@ -7,8 +7,7 @@ use nova_scotia::{
 };
 use nova_snark::{traits::Group, CompressedSNARK};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use serde_json::Value;
+use std::{env::current_dir, time::Instant};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(non_snake_case)]
@@ -17,7 +16,7 @@ struct Mint {
     private_inputs: Vec<MintRound>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, NovaCircuitInput)]
 #[allow(non_snake_case)]
 struct MintRound {
     sender: String,
@@ -29,20 +28,6 @@ struct MintRound {
     pathIndices: Vec<String>,
 }
 
-impl MintRound {
-    fn circuit_inputs(&self) -> HashMap<String, Value> {
-        let mut h = HashMap::new();
-        h.insert("sender".to_string(), json!(self.sender));
-        h.insert("recipient".to_string(), json!(self.recipient));
-        h.insert("leaf_coins".to_string(), json!(self.leaf_coins));
-        h.insert("mintPathElements".to_string(), json!(self.mintPathElements));
-        h.insert("mintPathIndices".to_string(), json!(self.mintPathIndices));
-        h.insert("pathElements".to_string(), json!(self.pathElements));
-        h.insert("pathIndices".to_string(), json!(self.pathIndices));
-        h
-    }
-}
-
 pub fn nova(iteration_count: usize) {
     let root = current_dir().unwrap();
 
@@ -52,7 +37,7 @@ pub fn nova(iteration_count: usize) {
 
     let mint_data: Mint = serde_json::from_str(include_str!("../inputs/mint.json")).unwrap();
 
-    println!("json: {:?}", mint_data);
+    println!("json: {mint_data:?}");
 
     let start_public_input = vec![
         F1::from_str_vartime(&mint_data.step_in[0]).unwrap(),
@@ -62,10 +47,8 @@ pub fn nova(iteration_count: usize) {
     let private_inputs = mint_data
         .private_inputs
         .iter()
-        .map(|v| v.circuit_inputs())
+        .map(|v| v.circuit_input())
         .collect();
-
-    dbg!(&private_inputs);
 
     let pp = create_public_params(r1cs.clone());
 
@@ -104,8 +87,8 @@ pub fn nova(iteration_count: usize) {
 
     // verify the recursive SNARK
     println!("Verifying a RecursiveSNARK...");
-    println!("z0_primary: {:?}", start_public_input);
-    println!("z0_secondary: {:?}", z0_secondary);
+    println!("z0_primary: {start_public_input:?}");
+    println!("z0_secondary: {z0_secondary:?}");
     let start = Instant::now();
     let res = recursive_snark.verify(
         &pp,
@@ -135,8 +118,8 @@ pub fn nova(iteration_count: usize) {
 
     // verify the compressed SNARK
     println!("Verifying a CompressedSNARK...");
-    println!("z0_primary: {:?}", start_public_input);
-    println!("z0_secondary: {:?}", z0_secondary);
+    println!("z0_primary: {start_public_input:?}");
+    println!("z0_secondary: {z0_secondary:?}");
     let start = Instant::now();
     let res = compressed_snark.verify(
         &vk,
