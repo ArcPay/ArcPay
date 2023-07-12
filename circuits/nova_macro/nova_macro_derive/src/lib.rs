@@ -51,6 +51,9 @@ pub fn outer_input_macro_derive(input: TokenStream) -> TokenStream {
 fn impl_outer_input_macro(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let gen = quote! {
+        use pasta_curves::Fq;
+        use serde_json::Value;
+
         impl NovaInput for #name {
             fn initial_inputs(&self) -> Vec<Fq> {
                 self.step_in

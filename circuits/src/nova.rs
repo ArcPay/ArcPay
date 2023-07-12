@@ -4,11 +4,11 @@ use nova_scotia::{
 };
 use nova_snark::{traits::Group, CompressedSNARK};
 use pasta_curves::Fq;
-use serde_json::Value;
-use std::{collections::HashMap, path::PathBuf, time::Instant};
+use std::{path::PathBuf, time::Instant};
 
 pub fn nova(
     iteration_count: usize,
+    compress: bool,
     r1cs: R1CS<Fq>,
     input: impl NovaInput,
     witness_generator_wasm: PathBuf,
@@ -70,33 +70,35 @@ pub fn nova(
     assert!(res.is_ok());
 
     // produce a compressed SNARK
-    println!("Generating a CompressedSNARK using Spartan with IPA-PC...");
-    let start = Instant::now();
-    let (pk, vk) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
-    let res = CompressedSNARK::<_, _, _, _, S1, S2>::prove(&pp, &pk, &recursive_snark);
-    println!(
-        "CompressedSNARK::prove: {:?}, took {:?}",
-        res.is_ok(),
-        start.elapsed()
-    );
-    assert!(res.is_ok());
-    let compressed_snark = res.unwrap();
+    if compress {
+        println!("Generating a CompressedSNARK using Spartan with IPA-PC...");
+        let start = Instant::now();
+        let (pk, vk) = CompressedSNARK::<_, _, _, _, S1, S2>::setup(&pp).unwrap();
+        let res = CompressedSNARK::<_, _, _, _, S1, S2>::prove(&pp, &pk, &recursive_snark);
+        println!(
+            "CompressedSNARK::prove: {:?}, took {:?}",
+            res.is_ok(),
+            start.elapsed()
+        );
+        assert!(res.is_ok());
+        let compressed_snark = res.unwrap();
 
-    // verify the compressed SNARK
-    println!("Verifying a CompressedSNARK...");
-    println!("z0_primary: {start_public_input:?}");
-    println!("z0_secondary: {z0_secondary:?}");
-    let start = Instant::now();
-    let res = compressed_snark.verify(
-        &vk,
-        iteration_count,
-        start_public_input.clone(),
-        z0_secondary,
-    );
-    println!(
-        "CompressedSNARK::verify: {:?}, took {:?}",
-        res.is_ok(),
-        start.elapsed()
-    );
-    assert!(res.is_ok());
+        // verify the compressed SNARK
+        println!("Verifying a CompressedSNARK...");
+        println!("z0_primary: {start_public_input:?}");
+        println!("z0_secondary: {z0_secondary:?}");
+        let start = Instant::now();
+        let res = compressed_snark.verify(
+            &vk,
+            iteration_count,
+            start_public_input.clone(),
+            z0_secondary,
+        );
+        println!(
+            "CompressedSNARK::verify: {:?}, took {:?}",
+            res.is_ok(),
+            start.elapsed()
+        );
+        assert!(res.is_ok());
+    }
 }

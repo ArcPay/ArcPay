@@ -1,24 +1,6 @@
 import { expect }  from 'chai';
 import { default as vmtree } from 'vmtree-sdk';
-
-import { MerkleTree as FixedMerkleTree } from "fixed-merkle-tree";
-
-class MerkleTree extends FixedMerkleTree {
-    constructor({ hasher, levels = 20, leaves = [], zero = 0 }) {
-        super(levels, leaves, {
-            hashFunction: (left, right) => hasher([left, right]),
-            zeroElement: zero,
-        });
-    };
-};
-
-function verifyMerkleProof({pathElements, pathIndices, leaf, root}) {
-    pathElements.forEach((element, i) => {
-        leaf = !pathIndices[i] ?
-            vmtree.poseidon([leaf, element]) : vmtree.poseidon([element, leaf]);
-    });
-    return leaf == root;
-}
+import { MerkleTree, stringify_nova_json, verifyMerkleProof } from './util.js';
 
 const stateTree = new MerkleTree({ hasher: vmtree.poseidon, levels: 3, zero: 0 });
 const mintTree = new MerkleTree({ hasher: vmtree.poseidon, levels: 3, zero: 0 });
@@ -31,6 +13,7 @@ requests.forEach((v) => v.leaf = vmtree.poseidon([v.recipient, v.leaf_coins[0], 
 requests.forEach((request, i) => {
     mintTree.update(i, request.leaf)
 })
+let step_in = [mintTree.root.toString(), stateTree.root.toString()];
 
 // update state tree while emptying mint tree and generating circuit inputs
 let inputs = requests.map((request, i) => {
@@ -46,7 +29,6 @@ let inputs = requests.map((request, i) => {
     
     const { pathIndices: si, pathElements: se } = stateTree.path(i);
     const input = vmtree.utils.stringifyBigInts({
-        step_in: [mintTree.root, stateTree.root],
         sender: 0,
         recipient: request.recipient,
         leaf_coins: request.leaf_coins,
@@ -62,9 +44,7 @@ let inputs = requests.map((request, i) => {
     return input;
 })
 
-let novaJson = {
-    step_in: inputs[0].step_in,
+console.log(stringify_nova_json({
+    step_in: step_in,
     private_inputs: inputs
-};
-
-console.log(JSON.stringify(novaJson, (_, v) => typeof v === "number" ? v.toString(): v, 4));
+}))

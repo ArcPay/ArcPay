@@ -3,9 +3,7 @@ use ff::PrimeField;
 use nova_macro::{NovaInput, NovaRoundInput};
 use nova_macro_derive::{NovaInput, NovaRoundInput};
 use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
-use pasta_curves::Fq;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{collections::HashMap, env::current_dir};
 
 // Generates and validates the input data for the filter circuit

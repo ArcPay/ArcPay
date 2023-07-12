@@ -38,7 +38,13 @@ pub fn withdraw(iteration_count: usize) {
 
     let withdraw_data: Withdraw =
         serde_json::from_str(include_str!("../inputs/withdraw.json")).unwrap();
-    nova(iteration_count, r1cs, withdraw_data, witness_generator_wasm);
+    nova(
+        iteration_count,
+        false,
+        r1cs,
+        withdraw_data,
+        witness_generator_wasm,
+    );
 }
 
 #[cfg(test)]

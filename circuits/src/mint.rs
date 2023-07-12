@@ -3,9 +3,7 @@ use ff::PrimeField;
 use nova_macro::{NovaInput, NovaRoundInput};
 use nova_macro_derive::{NovaInput, NovaRoundInput};
 use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
-use pasta_curves::Fq;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::{collections::HashMap, env::current_dir};
 
 #[derive(Serialize, Deserialize, Debug, Clone, NovaInput)]
@@ -35,7 +33,13 @@ pub fn mint(iteration_count: usize) {
     let witness_generator_wasm = root.join("circuits/build/compiled_circuit/mint_js/mint.wasm");
 
     let mint_data: Mint = serde_json::from_str(include_str!("../inputs/mint.json")).unwrap();
-    nova(iteration_count, r1cs, mint_data, witness_generator_wasm);
+    nova(
+        iteration_count,
+        true,
+        r1cs,
+        mint_data,
+        witness_generator_wasm,
+    );
 }
 
 #[cfg(test)]
