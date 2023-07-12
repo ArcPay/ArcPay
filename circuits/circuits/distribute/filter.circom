@@ -65,6 +65,7 @@ template Filter(coin_bits, history_depth, state_depth, filtered_depth, field_siz
     // Get the appropriate state root from history
     // Since every state root in history can be found with onchain data, the prover can be *required* to give a proof for the state root. This saves
     // putting this merkle proof in the claim, which saves constraints in the keccak, and calldata during claiming.
+    // Note, the claim contract *must* restrict block_number < 2 ** history_depth
     CheckMerkleProofStrict(history_depth)(
         leaf <== state_root,
         pathElements <== history_pathElements,
