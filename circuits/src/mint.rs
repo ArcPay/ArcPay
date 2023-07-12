@@ -1,6 +1,6 @@
-use crate::nova::{nova, NovaInput};
-use circuit_input_macro::NovaRoundInput;
-use circuit_input_macro_derive::NovaRoundInput;
+use crate::nova::nova;
+use circuit_input_macro::{NovaInput, NovaRoundInput};
+use circuit_input_macro_derive::{NovaInput, NovaRoundInput};
 use ff::PrimeField;
 use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
 use pasta_curves::Fq;
@@ -8,27 +8,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, env::current_dir};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, NovaInput)]
 #[allow(non_snake_case)]
 struct Mint {
     step_in: [String; 2],
     private_inputs: Vec<MintRound>,
-}
-
-impl NovaInput for Mint {
-    fn initial_inputs(&self) -> Vec<Fq> {
-        vec![
-            F1::from_str_vartime(&self.step_in[0]).unwrap(),
-            F1::from_str_vartime(&self.step_in[1]).unwrap(),
-        ]
-    }
-
-    fn round_inputs(&self) -> Vec<HashMap<String, Value>> {
-        self.private_inputs
-            .iter()
-            .map(|v| v.circuit_input())
-            .collect()
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, NovaRoundInput)]

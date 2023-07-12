@@ -41,3 +41,32 @@ fn impl_circuit_input_macro(ast: &syn::DeriveInput) -> TokenStream {
     };
     gen.into()
 }
+
+#[proc_macro_derive(NovaInput)]
+pub fn outer_input_macro_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+    impl_outer_input_macro(&ast)
+}
+
+fn impl_outer_input_macro(ast: &syn::DeriveInput) -> TokenStream {
+    let name = &ast.ident;
+    let gen = quote! {
+        impl NovaInput for #name {
+            fn initial_inputs(&self) -> Vec<Fq> {
+                self.step_in
+                    .to_vec()
+                    .iter()
+                    .map(|x| F1::from_str_vartime(x).unwrap())
+                    .collect()
+            }
+
+            fn round_inputs(&self) -> Vec<HashMap<String, Value>> {
+                self.private_inputs
+                    .iter()
+                    .map(|v| v.circuit_input())
+                    .collect()
+            }
+        }
+    };
+    gen.into()
+}
