@@ -1,4 +1,4 @@
-use circuit_input_macro::NovaInput;
+use nova_macro::NovaInput;
 use nova_scotia::{
     circom::circuit::R1CS, create_public_params, create_recursive_circuit, FileLocation, G2, S1, S2,
 };

@@ -1,7 +1,7 @@
 use crate::nova::nova;
-use circuit_input_macro::{NovaInput, NovaRoundInput};
-use circuit_input_macro_derive::{NovaInput, NovaRoundInput};
 use ff::PrimeField;
+use nova_macro::{NovaInput, NovaRoundInput};
+use nova_macro_derive::{NovaInput, NovaRoundInput};
 use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
 use pasta_curves::Fq;
 use serde::{Deserialize, Serialize};

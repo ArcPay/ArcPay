@@ -1,7 +1,7 @@
 use crate::nova::nova;
-use circuit_input_macro::{NovaInput, NovaRoundInput};
-use circuit_input_macro_derive::{NovaInput, NovaRoundInput};
 use ff::PrimeField;
+use nova_macro::{NovaInput, NovaRoundInput};
+use nova_macro_derive::{NovaInput, NovaRoundInput};
 use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
 use pasta_curves::Fq;
 use serde::{Deserialize, Serialize};
@@ -51,8 +51,8 @@ pub fn filter(iteration_count: usize) {
     let r1cs = load_r1cs(&FileLocation::PathBuf(circuit_file));
     let witness_generator_wasm = root.join("circuits/build/compiled_circuit/filter_js/filter.wasm");
 
-    let filter_data: Filter = serde_json::from_str(include_str!("../inputs/filter.json")).unwrap();
-    nova(iteration_count, r1cs, filter_data, witness_generator_wasm);
+    // let filter_data: Filter = serde_json::from_str(include_str!("../inputs/filter.json")).unwrap();
+    // nova(iteration_count, r1cs, filter_data, witness_generator_wasm);
 }
 
 #[cfg(test)]

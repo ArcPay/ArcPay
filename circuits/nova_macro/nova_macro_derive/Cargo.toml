@@ -1,5 +1,5 @@
 [package]
-name = "circuit_input_macro_derive"
+name = "nova_macro_derive"
 version = "0.1.0"
 edition = "2021"
 

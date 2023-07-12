@@ -3,12 +3,12 @@ use quote::quote;
 use syn;
 
 #[proc_macro_derive(NovaRoundInput)]
-pub fn circuit_input_macro_derive(input: TokenStream) -> TokenStream {
+pub fn nova_macro_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
-    impl_circuit_input_macro(&ast)
+    impl_nova_macro(&ast)
 }
 
-fn impl_circuit_input_macro(ast: &syn::DeriveInput) -> TokenStream {
+fn impl_nova_macro(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let fields = if let syn::Data::Struct(syn::DataStruct {
         fields: syn::Fields::Named(syn::FieldsNamed { named, .. }),

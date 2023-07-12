@@ -227,7 +227,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "circuit_input_macro"
+name = "nova_macro"
 version = "0.1.0"
 dependencies = [
  "pasta_curves",
@@ -235,7 +235,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "circuit_input_macro_derive"
+name = "nova_macro_derive"
 version = "0.1.0"
 dependencies = [
  "quote",
@@ -246,8 +246,8 @@ dependencies = [
 name = "circuits"
 version = "0.1.0"
 dependencies = [
- "circuit_input_macro",
- "circuit_input_macro_derive",
+ "nova_macro",
+ "nova_macro_derive",
  "ff",
  "nova-scotia",
  "nova-snark",
