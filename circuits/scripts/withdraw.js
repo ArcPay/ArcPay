@@ -52,8 +52,6 @@ stateTree.update(2, 0);
 stateTree.update(3, 0);
 stateTree.update(4, 0);
 
-console.log(stateTree.root);
-
 async function generateInput(privKey, sender, receiver, leafCoins, leafIndex) {
     let msghash_bigint = vmtree.poseidon([leafCoins[0], leafCoins[1], receiver]);
 
@@ -84,10 +82,9 @@ stateTree.update(0, vmtree.poseidon([0, 0, 10]));
 
 const input1 = await generateInput(privkeys[1], ethAddrsBigInt[1], 0n, [12n, 15n], 1);
 
-let novaJson = {};
-for (var k in input1) {
-    novaJson[k] = [input0[k], input1[k]];
-}
+let novaJson = {
+    step_in: input1.step_in,
+    private_inputs: [input0, input1]
+};
 
-novaJson.step_in = input1.step_in;
-console.log('novaJson', JSON.stringify(novaJson));
+console.log(JSON.stringify(novaJson, (_, v) => typeof v === "number" ? v.toString(): v, 4));
