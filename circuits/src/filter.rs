@@ -6,17 +6,6 @@ use nova_scotia::{circom::reader::load_r1cs, FileLocation, F1};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env::current_dir};
 
-// Generates and validates the input data for the filter circuit
-// 1) Generate mock onchain data:
-//      a. We construct a state history
-//      b. We take a set of claims and keccak them together into a hash chain, remembering all intermediate values
-// 2) Build inputs
-//      a. Initialise a filtered tree
-//      b. We unwind the hash chain:
-//          i/ Add to the filtered tree if claim exists in history
-//          ii/ Set inputs
-pub fn generate_input() {}
-
 #[derive(Serialize, Deserialize, Debug, Clone, NovaInput)]
 #[allow(non_snake_case)]
 struct Filter {
