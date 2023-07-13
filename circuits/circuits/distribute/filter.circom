@@ -50,6 +50,8 @@ template Filter(coin_bits, history_depth, state_depth, filtered_depth, field_siz
         Num2Bits(coin_bits)(last_coin),
         Num2Bits(history_depth)(block_number),
         Num2Bits(0)(0),
+        // TODO: optimise proof size. A 40 depth merkle proof requires 40 * 32 = 1280 bytes, which costs 20480 gas in calldata. We could either use a constant sized accumulator,
+        // or let people batch their own filtered claims using a ZKP, where the merkle proof is a private input.
         // TODO: add the state_pathElements again. Otherwise the prover is free to chose an arbitrary merkle proof for each claim.
         // MultiNum2Bits(state_depth, field_size)(state_pathElements),
         Num2Bits(state_depth)(state_pathIndex),
@@ -174,25 +176,5 @@ template concat8(l1,l2,l3,l4,l5,l6,l7,l8) {
     }
 }
 
-// coins_bits is 40:
-// - V1 is capped to ~$100M in TVL
-// - We need 1 cent increments
-// - The Eth price will probably 50x at most
-// 100,000,000 * 100 * 50 possible coins, which fits in 40 bits or 5 bytes.
-// 
-// history_depth is 20, since we can handle 4 blocks a day for a decade. We will probably mostly do 1 block per day, and v1 will probably only last a few years.
-// 
-// state_depth is also 40 so that it can, in principle handle a different entry per coin, this avoids an attack vector where the state is filled up
-// TODO: TODO: optimise proof size. A 40 depth merkle proof requires 40 * 32 = 1280 bytes, which costs 20480 gas in calldata. We could either use a constant sized accumulator,
-// or let people batch their own filtered claims using a ZKP, where the merkle proof is a private input.
-//
-// filtered_depth is 40 to prevent it being filled up. The only cost is prover time, as the filtered trees are only used within ZKPs
-//
-// field_size is 254 bits, at least for the grumpkin and bn254 cycles
-// TODO: does poseidon work the same over both grumpkin and bn254, or does it depend on our scalar field?
-// 
-// TODO: document global parameter choice at a higher level - these are relevant to the state transition circuit too
-// component main { public [step_in] } = Filter(40, 14, 40, 40, 254);
-
-// TODO: have a different file for testing parameters
+// component main { public [step_in] } = Filter(40, 14, 40, 40, 254); // TODO: pull from parameters.toml
 component main { public [step_in] } = Filter(40, 3, 3, 3, 254);
