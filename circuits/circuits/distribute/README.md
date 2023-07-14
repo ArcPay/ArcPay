@@ -1,39 +1,74 @@
-# Circuits
+# Post Shutdown Distribution
 
-As well as being used to enforce the state transition function, ZKPs are used to handle distribution after shutdown.
+ZKPs are used to cheaply handle distribution of funds after shutdown.
 The distribution circuits take a set of claims over coins and output the rightful final owners given those claims.
 
-## Algorithm
+# Algorithm
 
 Distribution involves 3 parts:
-    - Filter out any claim that is invalid (i.e., did not occur in the state history)
-    - Resolve any conflicts between claims
-    - Prove that there are no conflicting claims in the final output
+- Building the list of valid claims (where valid claims are true facts about the state history)
+- Resolve any conflicts between claims
+- Prove that there are no conflicting claims in the final list
+- Convert the list to format that is friendly for L1 withdrawals
 
-For conceptual simplicity and good prover time, we will implement each part as a separate Nova circuit.
+<!-- TODO: mention that we could also allow people to withdraw en masse to new systems using ZKPs from the final format -->
+<!-- TODO: consider incentives - batchers should be compensated, and the person who posts the final 3 steps should be compensated. Batchers should be paid by the claimants idealy, and the finaliser could potentially be paid for out of the protocol's funds - perhaps the burned stake: how do we calculate the appropriate amount? Some constant? Something to do with gas costs? -->
 
-### Filtering
+For conceptual simplicity and good prover time, we will implement each part as a separate Nova/Groth16 circuit.
 
-Claims are statments like `X owns coins [a,b] in block Y` along with a purported Merkle proof.
-The set of claims are represented as an accumulator, in particular a keccak hash chain.
-The state history is represented as a Merkle root, which is known onchain, and passed as a public input to the circuit. It must be passed unchanged through each iteration of the circuit.
-There is also an index public input, which is required to start at `0` and end at `claim_count`, which is also known onchain.
-There is a `filtered_count` input that starts at `0`.
+## Validation
 
-The circuit processes one claim per iteration/fold. The claim accumulator starts at 0, one claim is added per iteration, and it must end with the right onchain value.
-If the claim exists in the state history, the `filtered_count` variable is incremented and the claim is added to a filtered poseidon merkle tree at position `filtered_count`. Otherwise, `filtered_count` stays the same and nothing is changed.
+Claims are statments like `X owns coins [a,b] in block Y`.
+To lower the cost of claiming, claims are made in batches.
 
-If all the checks pass, then this circuit outputs a `filtered_tree` of size `filtered_count`, where every claim in the tree is valid.
+The validation algorithm achieves the following properties:
+- Anyone can post a batch
+- The final `validated_root` commits to the set of all valid claims
+- All claims can be recovered using calldata, to execute the next steps
 
-### Challenge Resolution
+### Algorithm
 
-The challenge resolution circuit is also in Nova and runs iteratively. The initial input is the `filtered_tree` which is a poseidon Merkle tree, and each iteration takes two contradictory claims in the tree, resolves the contradiction, and updates the tree.
+A poseidon merkle tree of all valid claims is initialised with zeroes leaves, and its root (`validated_root`) and element count (`validated_count`) are stored onchain.
+
+
+To claim a batch:
+- The user uses their ownership proofs (i.e., merkle proofs) to generate a Nova/Groth16 ZKP which proves that their claims were true given the state history.
+- The proof outputs an updated `validated_root` and `validated_count`, and a keccak hash chain of the added claims called `keccak_head`
+- The contract reverts if the `initial_root` input to the proof is different to `validated_root` to minimise gas costs in case of collisions/frontrunning
+- The contract verifies the proof and unrolls `keccak_head` using claims passed in as calldata
+- The contract updates `validated_head` to `new_validated_head` as output by the proof
+
+So each round of the circuit:
+- Accepts public inputs: `initial_root`, `last_root`, `keccak_head`, `history_root`, `validated_count`
+- Accepts private inputs: a claim, and merkle proof that the claim exists in history, a merkle proof for inserting into the claim tree
+- Proves that the claim exists in history
+- Inserts the claim into the `last_root` tree at index `validated_count`, giving the `new_root` tree
+- Increments `validated_count`
+- Updates `keccak_head` with the new claim
+- Outputs the updated values, while `initial_root` is kept constant
+
+<!-- ### Future Optimisations
+
+There are 3 important costs we should try to minimise when making claims:
+- Cost of a fully trustless claim
+- Marginal cost of a batched claim
+- Amortised cost of a batched claim
+
+Our v1 algorithm minimises the marginal cost of batched claims to near the theoretical minimum (~400 gas/~$0.025). The trustless costs are very bad, requiring a groth16 proof (~300k gas/~$20 USD) for every batch including batches with just 1 claim.
+
+In v2 we can reduce the trustless costs by replacing direct onchain verification of ZKPs with an optimistic game or recursive ZKP.
+This would reduce the minimum cost per batch from ~300k gas/~$20 USD (dominated by groth16 verification) to ~5k gas/~$0.3 USD (dominated by updating a 32 byte accumulator).
+The marginal cost of a batched claim is dominated by the calldata 30 bytes of calldata (20 for the address, 5 for first and last coin). In v2 we can reduce this by using indices for accounts rather than addresses, bringing the calldata to 14 bytes for ~4 billion accounts and halving the cost. -->
+
+## Challenge Resolution
+
+The challenge resolution circuit is also in Nova and runs iteratively. The initial input is the `validated_root` which is a poseidon Merkle tree, and each iteration takes two contradictory claims in the tree, resolves the contradiction, and updates the tree.
 
 The first claim is called the winner and the second is the loser. The winner's block number must be greater than the loser's. The winner's leaf remains unedited. If the winner's coins are a superset of the loser's (i.e., $[0,5]$ beats $[2,3]$), the loser's leaf is deleted, and the `resolved_count` is decremented. If the loser's coins are split (i.e., $[2,3]$ beats $[0,5]$), the loser's leaf is deleted, but two new leaves are added and the `resolved_count` is incremented. If the loser's coins are truncated (i.e., $[1,5]$ vs $[1,3]$), the loser's leaf is deleted, a new leaf is added and the `resolved_count` remains the same.
 
 Now we have a `resolved_tree` that contains all valid winning claims, but may contain additional claims.
 
-### Proving Disjointness
+## Proving Disjointness
 
 The disjointness circuit takes the `resolved_tree` as input, and a new `final_tree` as advice. Its goal is to show that the `final_tree` is sorted by coin order, fully disjoint, and only contains elements from the `resolved_tree`. This proves that the final tree only contains the true winners, and, importantly, it can be deterministically calculated with onchain data, so everyone can calculate the merkle proofs they need. The `final_tree` should use keccak for gas efficiency.
 
@@ -42,6 +77,10 @@ The circuit iterates over every element in the `final_tree` and makes sure that 
 Since the `start_coin[i] < end_coin[i]` for every valid claim (if the protocol operated correctly while running!!), and `end_coin[i] < start_coin[i+1]` from our ordering check, we know that our claims are strictly ordered. This means that every claim is different. Since we have proved that the `final_tree` contains at least `resolve_count` distinct elements that also exist in the `resolved_tree`, we know that `final` is a superset of `resolved`. To prove that the sets are strictly equal, we have to prove that all other elements are zero.
 
 We prove that the remaining elements are zero by showing that the `resolved_count`th element is 0, and that the `resolved_count/2`th element is `h(0, 0)` etc up the tree. This doesn't necessarily fit nicely into an iteration of the disjointness circuit, but could be done in its own proof or even onchain.
+
+### Withdrawals
+
+TODO: convert into a keccak merkle tree of unassailable depth (i.e., coin_bits depth, since that's the maximum number of possible final claims). Note that'd probably cost 40k gas on L1, which, in addition 21k for sending Eth would massively dominate the marginal cost of claims.
 
 ## Properties
 
