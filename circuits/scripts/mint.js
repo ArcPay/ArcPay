@@ -46,5 +46,6 @@ let inputs = requests.map((request, i) => {
 
 console.log(stringify_nova_json({
     step_in: step_in,
-    private_inputs: inputs
+    private_inputs: inputs,
+    expected: [mintTree.root.toString(), stateTree.root.toString()]
 }))

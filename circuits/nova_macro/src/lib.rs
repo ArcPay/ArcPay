@@ -8,4 +8,5 @@ pub trait NovaRoundInput {
 pub trait NovaInput {
     fn initial_inputs(&self) -> Vec<Fq>;
     fn round_inputs(&self) -> Vec<HashMap<String, serde_json::Value>>;
+    fn expected(&self) -> Vec<Fq>;
 }

@@ -68,6 +68,7 @@ pub fn nova(
         start.elapsed()
     );
     assert!(res.is_ok());
+    assert!(res.unwrap().0 == input.expected());
 
     // produce a compressed SNARK
     if compress {

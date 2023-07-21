@@ -11,6 +11,7 @@ use std::{collections::HashMap, env::current_dir};
 struct Filter {
     step_in: [String; 5],
     private_inputs: Vec<FilterRound>,
+    outputs: [String; 5],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, NovaRoundInput)]

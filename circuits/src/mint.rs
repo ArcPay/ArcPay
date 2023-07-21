@@ -11,6 +11,7 @@ use std::{collections::HashMap, env::current_dir};
 struct Mint {
     step_in: [String; 2],
     private_inputs: Vec<MintRound>,
+    outputs: [String; 2],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, NovaRoundInput)]

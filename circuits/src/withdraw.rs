@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 struct Withdraw {
     step_in: [String; 1],
     private_inputs: Vec<WithdrawRound>,
+    outputs: [String; 1],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, NovaRoundInput)]

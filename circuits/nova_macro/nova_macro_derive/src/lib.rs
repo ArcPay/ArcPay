@@ -69,6 +69,14 @@ fn impl_outer_input_macro(ast: &syn::DeriveInput) -> TokenStream {
                     .map(|v| v.circuit_input())
                     .collect()
             }
+
+            fn expected(&self) -> Vec<Fq> {
+                self.outputs
+                    .to_vec()
+                    .iter()
+                    .map(|x| F1::from_str_vartime(x).unwrap())
+                    .collect()
+            }
         }
     };
     gen.into()
