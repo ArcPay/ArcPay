@@ -19,7 +19,7 @@ struct OwnershipRequest {
     bytes32 responseHash;
 }
 
-contract Altitude is Ownable2Step {
+contract ArcPay is Ownable2Step {
     string internal constant ERROR_MINT_EMPTY = "E1";
     string internal constant ERROR_FORCE_NO_COIN = "E2";
     string internal constant ERROR_SLASH_NO_FORCE = "E3";
