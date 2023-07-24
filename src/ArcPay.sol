@@ -20,14 +20,14 @@ struct OwnershipRequest {
 }
 
 contract ArcPay is Ownable2Step {
+    event Mint(address receiver, uint amount);
+
     string internal constant ERROR_MINT_EMPTY = "E1";
     string internal constant ERROR_FORCE_NO_COIN = "E2";
     string internal constant ERROR_SLASH_NO_FORCE = "E3";
     string internal constant ERROR_SLASH_NOT_OLD = "E4";
     string internal constant ERROR_DOUBLE_RESPONSE = "E5";
     string internal constant ERROR_NONMATCHING_RESPONSE = "E6";
-
-    event Mint(address receiver, uint amount);
 
     using IncrementalBinaryTree for IncrementalTreeData;
 
@@ -59,105 +59,59 @@ contract ArcPay is Ownable2Step {
         emit Mint(receiver, msg.value);
     }
 
-    function forceInclude(
-        address receiver,
-        uint[2] calldata leafCoins,
-        uint highestCoinToSend,
-        bytes memory signature
-    ) external {
+    function forceInclude(address receiver, uint[2] calldata leafCoins, uint highestCoinToSend, bytes memory signature) external {
         require(highestCoinToSend < maxCoin, ERROR_FORCE_NO_COIN);
-        uint hash = PoseidonT5.hash(
-            [
-                leafCoins[0],
-                leafCoins[1],
-                highestCoinToSend,
-                uint(uint160(receiver))
-            ]
-        );
+        uint hash = PoseidonT5.hash([leafCoins[0], leafCoins[1], highestCoinToSend, uint(uint160(receiver))]);
         require(msg.sender == ECDSA.recover(bytes32(hash), signature));
 
-        forcedInclusions.push(Force({hash: hash, time: block.timestamp}));
+        forcedInclusions.push(Force({
+            hash: hash,
+            time: block.timestamp
+        }));
     }
 
     function slashForLateInclusion(uint i) external {
         require(forcedInclusions[i].time != 0, ERROR_SLASH_NO_FORCE);
-        require(
-            block.timestamp - forcedInclusions[i].time > FORCE_WAIT,
-            ERROR_SLASH_NOT_OLD
-        );
+        require (block.timestamp - forcedInclusions[i].time > FORCE_WAIT, ERROR_SLASH_NOT_OLD);
 
         // SLASH
     }
 
-    function updateState() external onlyOwner {}
+    function updateState() external onlyOwner {
 
-    function updateMint() external onlyOwner {}
+    }
+
+    function updateMint() external onlyOwner {
+
+    }
 
     // any eth sent is part of the slashable stake
     receive() external payable {}
 
     function requestOwnerShipProof(uint coin, uint block_number) external {
-        ownershipRequests.push(
-            OwnershipRequest({
-                coin: coin,
-                block_number: block_number,
-                time: block.timestamp,
-                responseHash: 0
-            })
-        );
+        ownershipRequests.push(OwnershipRequest({
+            coin: coin,
+            block_number: block_number,
+            time: block.timestamp,
+            responseHash: 0
+        }));
     }
 
     function slashForLateResponse(uint i) external {
         require(ownershipRequests[i].time != 0, ERROR_SLASH_NO_FORCE);
-        require(
-            block.timestamp - ownershipRequests[i].time > REQUEST_WAIT,
-            ERROR_SLASH_NOT_OLD
-        );
+        require (block.timestamp - ownershipRequests[i].time > REQUEST_WAIT, ERROR_SLASH_NOT_OLD);
 
         // SLASH
     }
 
-    function respondToOwnershipRequest(
-        uint i,
-        bool[DEPTH] calldata pathIndices,
-        uint[DEPTH] calldata pathElements,
-        uint lower_coin,
-        uint upper_coin,
-        uint owner
-    ) external {
+    function respondToOwnershipRequest(uint i, bool[DEPTH] calldata pathIndices, uint[DEPTH] calldata pathElements, uint lower_coin, uint upper_coin, uint owner) external {
         require(ownershipRequests[i].time != 0, ERROR_DOUBLE_RESPONSE);
         ownershipRequests[i].time = 0;
-        ownershipRequests[i].responseHash = keccak256(
-            abi.encodePacked(
-                pathIndices,
-                pathElements,
-                lower_coin,
-                upper_coin,
-                owner
-            )
-        );
+        ownershipRequests[i].responseHash = keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner));
     }
 
-    function slashForInvalidOwnershipProof(
-        uint i,
-        bool[DEPTH] calldata pathIndices,
-        uint[DEPTH] calldata pathElements,
-        uint lower_coin,
-        uint upper_coin,
-        uint owner
-    ) external {
-        require(
-            keccak256(
-                abi.encodePacked(
-                    pathIndices,
-                    pathElements,
-                    lower_coin,
-                    upper_coin,
-                    owner
-                )
-            ) == ownershipRequests[i].responseHash,
-            ERROR_NONMATCHING_RESPONSE
-        );
+    function slashForInvalidOwnershipProof(uint i, bool[DEPTH] calldata pathIndices, uint[DEPTH] calldata pathElements, uint lower_coin, uint upper_coin, uint owner) external {
+        require(keccak256(abi.encodePacked(pathIndices, pathElements, lower_coin, upper_coin, owner)) == ownershipRequests[i].responseHash, ERROR_NONMATCHING_RESPONSE);
         // TODO: require that the proof is valid for that `block_number`th block in stateHistory
 
         // Slash
@@ -166,6 +120,10 @@ contract ArcPay is Ownable2Step {
     function slashForBrokenPromise() external {
         // TODO: show that the promise was signed by the operator (does transferable ownership make this tricky?)
         // TODO: show that the promise contradicts a response in ownershipRequests
+
         // Slash
     }
+
+
 }
+

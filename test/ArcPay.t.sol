@@ -10,4 +10,8 @@ contract ArcPayTest is Test {
     function setUp() public {
         arc = new ArcPay(address(this));
     }
+
+    function testMint() public {
+        arc.mint{value: 1}(address(1));
+    }
 }
