@@ -20,6 +20,7 @@ For conceptual simplicity and good prover time, we will implement each part as a
 
 Claims are statments like `X owns coins [a,b] in block Y`.
 To lower the cost of claiming, claims are made in batches.
+The state history is an ordered Merkle tree of all state trees that ever existed.
 
 The validation algorithm achieves the following properties:
 - Anyone can post a batch
@@ -29,7 +30,7 @@ The validation algorithm achieves the following properties:
 ### Algorithm
 
 A poseidon merkle tree of all valid claims is initialised with zeroes leaves, and its root (`validated_root`) and element count (`validated_count`) are stored onchain.
-
+`validated_root` is initialised to the zero Merkle tree, and `validated_count` is initialised to `0`.
 
 To claim a batch:
 - The user uses their ownership proofs (i.e., merkle proofs) to generate a Nova/Groth16 ZKP which proves that their claims were true given the state history.
@@ -64,17 +65,21 @@ The marginal cost of a batched claim is dominated by the calldata 30 bytes of ca
 
 The challenge resolution circuit is also in Nova and runs iteratively. The initial input is the `validated_root` which is a poseidon Merkle tree, and each iteration takes two contradictory claims in the tree, resolves the contradiction, and updates the tree.
 
-The first claim is called the winner and the second is the loser. The winner's block number must be greater than the loser's. The winner's leaf remains unedited. If the winner's coins are a superset of the loser's (i.e., $[0,5]$ beats $[2,3]$), the loser's leaf is deleted, and the `resolved_count` is decremented. If the loser's coins are split (i.e., $[2,3]$ beats $[0,5]$), the loser's leaf is deleted, but two new leaves are added and the `resolved_count` is incremented. If the loser's coins are truncated (i.e., $[1,5]$ vs $[1,3]$), the loser's leaf is deleted, a new leaf is added and the `resolved_count` remains the same.
+The first claim is called the winner and the second is the loser. The winner's block number must be greater than the loser's. The winner's leaf remains unedited. If the winner's coins are a superset of the loser's (i.e., $[0,5]$ beats $[2,3]$), the loser's leaf is deleted, and the `resolved_count` is decremented. If the loser's coins are split (i.e., $[2,3]$ beats $[0,5]$), the loser's leaf is deleted, but two new leaves are added and the `resolved_count` is incremented. If the loser's coins are truncated (i.e., $[1,5]$ beats $[1,6]$), the loser's leaf is deleted, a new leaf is added and the `resolved_count` remains the same.
 
 Now we have a `resolved_tree` that contains all valid winning claims, but may contain additional claims.
 
+> **How can `resolved_tree` contain additional claims?:** There's nothing in the challenge resolution circuit that *forces* all overlapping claims to be fixed, it's just an opportunity to fixed overlapping claims. The next circuit makes sure all overlapping claims have actually been dealt with.
+
 ## Proving Disjointness
 
-The disjointness circuit takes the `resolved_tree` as input, and a new `final_tree` as advice. Its goal is to show that the `final_tree` is sorted by coin order, fully disjoint, and only contains elements from the `resolved_tree`. This proves that the final tree only contains the true winners, and, importantly, it can be deterministically calculated with onchain data, so everyone can calculate the merkle proofs they need. The `final_tree` should use keccak for gas efficiency.
+The disjointness circuit takes the `resolved_tree` and a new `final_tree` as input. Its goal is to show that the `final_tree` is sorted by coin order, fully disjoint, and only contains elements from the `resolved_tree`. This proves that the final tree only contains the true winners, and, importantly, it can be deterministically calculated with onchain data, so everyone can calculate the merkle proofs they need. The `final_tree` should use keccak for gas efficiency during withdrawal.
 
 The circuit iterates over every element in the `final_tree` and makes sure that its `end_coin` is lower than the `start_coin` of the next claim (unless it's the final claim, in which case there is no next claim). It also makes sure that the element exists in the `resolved_tree`.
 
-Since the `start_coin[i] < end_coin[i]` for every valid claim (if the protocol operated correctly while running!!), and `end_coin[i] < start_coin[i+1]` from our ordering check, we know that our claims are strictly ordered. This means that every claim is different. Since we have proved that the `final_tree` contains at least `resolve_count` distinct elements that also exist in the `resolved_tree`, we know that `final` is a superset of `resolved`. To prove that the sets are strictly equal, we have to prove that all other elements are zero.
+Since the `start_coin[i] < end_coin[i]` for every valid claim (if the protocol operated correctly while running!!), we can check that `end_coin[i] < start_coin[i+1]` in our circuit, which proves that the claims are strictly ordered. This also means that every claim is different. We also check that `final_tree` contains at least `resolved_count` elements, by counting the number of folds.
+
+Since we have proved that the `final_tree` contains at least `resolve_count` distinct elements that also exist in the `resolved_tree`, we know that `final` is a superset of `resolved`. To prove that the sets are strictly equal, we have to prove that all other elements are zero.
 
 We prove that the remaining elements are zero by showing that the `resolved_count`th element is 0, and that the `resolved_count/2`th element is `h(0, 0)` etc up the tree. This doesn't necessarily fit nicely into an iteration of the disjointness circuit, but could be done in its own proof or even onchain.
 
