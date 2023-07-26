@@ -36,7 +36,7 @@ pub fn mint(iteration_count: usize) {
     let mint_data: Mint = serde_json::from_str(include_str!("../inputs/mint.json")).unwrap();
     nova(
         iteration_count,
-        true,
+        false,
         r1cs,
         mint_data,
         witness_generator_wasm,

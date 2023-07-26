@@ -12,8 +12,8 @@ template VerifySignature(hashIns, n, k) {
     signal input pubkey[2][k];
 
     signal input msg[hashIns];
-    signal input signer;
 
+    signal output signer;
     signal output is_valid;
 
     // message hash check
@@ -31,20 +31,14 @@ template VerifySignature(hashIns, n, k) {
         cumulativeM === msghash_computed;
     }
 
-    signal result <== ECDSAVerifyNoPubkeyCheck(n,k)(
+    is_valid <== ECDSAVerifyNoPubkeyCheck(n,k)(
         r <== r,
         s <== s,
         msghash <== msghash,
         pubkey <== pubkey
     );
 
-    // result === 1;
-
-    signal signer_computed <== PubkeyToAddress()(
+    signer <== PubkeyToAddress()(
         pubkeyBits <== FlattenPubkey(n, k)(chunkedPubkey <== pubkey)
     );
-
-    signal is_signer_valid <== IsZero()(in <== signer_computed - signer);
-
-    is_valid <== result * is_signer_valid;
 }

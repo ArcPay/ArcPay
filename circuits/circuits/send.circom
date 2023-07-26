@@ -108,7 +108,6 @@ template Validate(levels) {
     // private inputs
     // tx
     signal input highest_coin_to_send; // sending [leaf_coins[0], highest_coin_to_send]
-    signal input signature;
     signal input sender; // sender is also the signer.
 
     // relevant state
