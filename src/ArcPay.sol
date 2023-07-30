@@ -77,8 +77,8 @@ contract ArcPay is Ownable2Step {
         // SLASH
     }
 
-    function updateState() external onlyOwner {
-
+    function updateState(uint _stateRoot) external onlyOwner {
+        stateRoot = _stateRoot;
     }
 
     function updateMint() external onlyOwner {
