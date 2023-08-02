@@ -6,6 +6,7 @@ import {Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownab
 import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PoseidonT3} from "../lib/poseidon-solidity/contracts/PoseidonT3.sol";
 import {PoseidonT5} from "../lib/poseidon-solidity/contracts/PoseidonT5.sol";
+import {PoseidonT6} from "../lib/poseidon-solidity/contracts/PoseidonT6.sol";
 
 struct Force {
     uint hash;
@@ -20,7 +21,7 @@ struct OwnershipRequest {
 }
 
 contract ArcPay is Ownable2Step {
-    event Mint(address receiver, uint amount);
+    event Mint(address receiver, uint lowCoin, uint highCoin);
 
     string internal constant ERROR_MINT_EMPTY = "E1";
     string internal constant ERROR_FORCE_NO_COIN = "E2";
@@ -36,7 +37,8 @@ contract ArcPay is Ownable2Step {
     uint internal constant FORCE_WAIT = 1 days;
     uint internal constant REQUEST_WAIT = 1 days;
 
-    IncrementalTreeData public mintTree;
+    uint public mintHashChain;
+    uint numMints = 0;
     uint[] public stateHistory;
     uint public stateRoot;
 
@@ -48,15 +50,15 @@ contract ArcPay is Ownable2Step {
 
     constructor(address _owner) {
         _transferOwnership(_owner);
-        mintTree.init(DEPTH, ZERO);
     }
 
-    function mint(address receiver) external payable returns (uint root) {
+    function mint(address receiver) external payable returns (uint) {
         require(msg.value > 0, ERROR_MINT_EMPTY);
-        root = mintTree.insert({
-            leaf: PoseidonT3.hash([uint(uint160(receiver)), msg.value])
-        });
-        emit Mint(receiver, msg.value);
+        mintHashChain = PoseidonT6.hash([uint(uint160(receiver)), maxCoin, maxCoin+msg.value, mintHashChain, numMints]);
+        ++numMints;
+        emit Mint(receiver, maxCoin, maxCoin+msg.value);
+        maxCoin += msg.value;
+        return mintHashChain;
     }
 
     function forceInclude(address receiver, uint[2] calldata leafCoins, uint highestCoinToSend, bytes memory signature) external {
@@ -79,14 +81,12 @@ contract ArcPay is Ownable2Step {
 
     function updateState(uint _stateRoot) external onlyOwner {
         stateRoot = _stateRoot;
+        stateHistory.push(_stateRoot);
     }
 
     function updateMint() external onlyOwner {
 
     }
-
-    // any eth sent is part of the slashable stake
-    receive() external payable {}
 
     function requestOwnerShipProof(uint coin, uint block_number) external {
         ownershipRequests.push(OwnershipRequest({
@@ -124,6 +124,7 @@ contract ArcPay is Ownable2Step {
         // Slash
     }
 
-
+    // any eth sent is part of the slashable stake
+    receive() external payable {}
 }
 
