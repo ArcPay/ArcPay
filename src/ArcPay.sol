@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import {Ownable2StepUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import {Initializable} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+
 import {IncrementalTreeData, IncrementalBinaryTree} from "./IncrementalBinaryTree.sol";
 import {Ownable2Step} from "../lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PoseidonT3} from "../lib/poseidon-solidity/contracts/PoseidonT3.sol";
 import {PoseidonT5} from "../lib/poseidon-solidity/contracts/PoseidonT5.sol";
 import {PoseidonT6} from "../lib/poseidon-solidity/contracts/PoseidonT6.sol";
+
+import {TimelockedAdmin} from "./TimelockedAdmin.sol";
 
 struct Force {
     uint hash;
@@ -20,7 +26,7 @@ struct OwnershipRequest {
     bytes32 responseHash;
 }
 
-contract ArcPay is Ownable2Step {
+contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     event Mint(address receiver, uint lowCoin, uint highCoin);
 
     string internal constant ERROR_MINT_EMPTY = "E1";
@@ -52,10 +58,18 @@ contract ArcPay is Ownable2Step {
     Force[] public forcedInclusions;
 
     uint maxCoin = 0;
+    uint256[42] private __gap; // reserve storage slots for future upgrades
 
-    constructor(address _owner) {
-        _transferOwnership(_owner);
+    constructor() {
+        _disableInitializers();
     }
+
+    function initialize(TimelockedAdmin _owner) initializer public {
+        _transferOwnership(address(_owner)); // __Ownable2Step_init eventually just transfers ownership to msg.sender.
+        __UUPSUpgradeable_init();
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal onlyOwner override {}
 
     function _slash() internal {
         (bool success, ) = payable(msg.sender).call{value: address(this).balance}(""); // EXTERNAL CALL
