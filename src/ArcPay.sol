@@ -29,15 +29,16 @@ struct OwnershipRequest {
 contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     event Mint(address receiver, uint lowCoin, uint highCoin);
 
-    string internal constant ERROR_MINT_EMPTY = "E1";
-    string internal constant ERROR_FORCE_NO_COIN = "E2";
-    string internal constant ERROR_SLASH_NO_FORCE = "E3";
-    string internal constant ERROR_SLASH_NOT_OLD = "E4";
-    string internal constant ERROR_DOUBLE_RESPONSE = "E5";
-    string internal constant ERROR_NONMATCHING_RESPONSE = "E6";
-    string internal constant ERROR_MINT_SLASH_NO_FORCE = "E7";
-    string internal constant ERROR_MINT_SLASH_NOT_OLD = "E8";
-    string internal constant ERROR_SLASH_AMOUNT_NOT_SENT= "E9";
+    string internal constant ERROR_MINT_EMPTY = "E0";
+    string internal constant ERROR_FORCE_NO_COIN = "E1";
+    string internal constant ERROR_SLASH_NO_FORCE = "E2";
+    string internal constant ERROR_SLASH_NOT_OLD = "E3";
+    string internal constant ERROR_DOUBLE_RESPONSE = "E4";
+    string internal constant ERROR_NONMATCHING_RESPONSE = "E5";
+    string internal constant ERROR_MINT_SLASH_NO_FORCE = "E6";
+    string internal constant ERROR_MINT_SLASH_NOT_OLD = "E7";
+    string internal constant ERROR_SLASH_AMOUNT_NOT_SENT = "E8";
+    string internal constant ERROR_NOT_OPERATOR = "E9";
 
     using IncrementalBinaryTree for IncrementalTreeData;
 
@@ -45,6 +46,8 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     uint internal constant DEPTH = 20;
     uint internal constant FORCE_WAIT = 1 days;
     uint internal constant REQUEST_WAIT = 1 days;
+
+    address operator;
 
     uint public mintHashChain;
     uint provedMintTimeStamp = 0;
@@ -58,13 +61,23 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     Force[] public forcedInclusions;
 
     uint maxCoin = 0;
-    uint256[42] private __gap; // reserve storage slots for future upgrades
+
+    // reserve storage slots for future upgrades.
+    // when introducing a new storage variable taking up a new storage slot,
+    // decrement `__gap` length by 1.
+    uint256[41] private __gap;
+
+    modifier onlyOperator {
+        require(msg.sender == operator, ERROR_NOT_OPERATOR);
+        _;
+    }
 
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(TimelockedAdmin _owner) initializer public {
+    function initialize(TimelockedAdmin _owner, address _operator) initializer public {
+        operator = _operator;
         _transferOwnership(address(_owner)); // __Ownable2Step_init eventually just transfers ownership to msg.sender.
         __UUPSUpgradeable_init();
     }
@@ -111,10 +124,16 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
         _slash();
     }
 
-    function updateState(uint _stateRoot, uint mintTime) external onlyOwner {
+    function updateState(uint _stateRoot, uint mintTime) external onlyOperator {
         stateRoot = _stateRoot;
         stateHistory.push(_stateRoot);
         provedMintTimeStamp = mintTime;
+    }
+
+    // TODO: what happens with current broken promises when operator changes.
+    // What are the repurcussions of a time delayed change here?
+    function updateOperator(address _operator) external onlyOwner {
+        operator = _operator;
     }
 
     function requestOwnerShipProof(uint coin, uint blockNumber) external {
