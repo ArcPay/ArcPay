@@ -47,7 +47,7 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     uint internal constant FORCE_WAIT = 1 days;
     uint internal constant REQUEST_WAIT = 1 days;
 
-    address operator;
+    address public operator;
 
     uint public mintHashChain;
     uint provedMintTimeStamp = 0;
