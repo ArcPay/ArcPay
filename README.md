@@ -1,6 +1,12 @@
-# Altitude
+# ArcPay
 
-Altitude is a payment validium with a fully trustless escape hatch. Users hold proofs that let them claim their coins during shutdown without relying on any external party. This enables arbitrary scaling with near L1 level security.
+ArcPay is a payment validium with a fully trustless escape hatch.
+
+This repo contains the circuits and smart contracts required for ArcPay. A skeptical user can read and build the code here to verify that their funds will be safe on ArcPay.
+
+## Design
+
+Users hold proofs that let them claim their coins during shutdown without relying on any external party. This enables arbitrary scaling with near L1 level security.
 
 During shutdown, users have a month to prove ownership of their tokens. Newer proofs invalidate older proofs for the same tokens and every token is numbered. To get full self custody of their tokens, users need an ownership proof from the operator.
 
@@ -12,9 +18,9 @@ Promises from the operator are a form of instant payment. If the promise is brok
 
 Payments are a huge market that, if conquered, could make Eth a true money. Visa alone settles over [\$1T per month](https://bit.ly/3p5Q7pL). By using cryptoeconomics instead of underwriting transactions, we can undercut existing payment providers, while offering far stronger security to users.
 
-Recently, L2s have been built on top of blockchains to minimise fees while inheriting security from the underlying blockchain. Strong L2s, like rollups with onchain calldata are limited by Ethereum's data throughput. Only state channel networks and rollups with DA (data availability) proofs currently allow arbitrary data scaling, which is necessary for low fees, but both make substantial security tradeoffs. We present a new L2 called Altitude, which combines their benefits.
+Recently, L2s have been built on top of blockchains to minimise fees while inheriting security from the underlying blockchain. Strong L2s, like rollups with onchain calldata are limited by Ethereum's data throughput. Only state channel networks and rollups with DA (data availability) proofs currently allow arbitrary data scaling, which is necessary for low fees, but both make substantial security tradeoffs. We present a new L2 called ArcPay, which combines their benefits.
 
-|                | State Channels    | DA Rollup    | Altitude        |
+|                | State Channels    | DA Rollup    | ArcPay        |
 | -----------    | -----------       | -----------  | -----------     |
 | Escape Hatch   | ✅ Individual      | ❌ m-of-n    | ✅ Individual   |
 | Finality       | ✅ Instant         | ❌ L1        | 🦺 Instant*     |
@@ -26,15 +32,15 @@ Recently, L2s have been built on top of blockchains to minimise fees while inher
 
 # Shutdown
 
-Altitude has to follow a variety of rules during normal operation to ensure censorship resistance and safety. If it violates any of these rules the validium is shut down. Shutdown freezes the state, fully slashes the operator's stake, and initiates the shutdown sequence.
+ArcPay has to follow a variety of rules during normal operation to ensure censorship resistance and safety. If it violates any of these rules the validium is shut down. Shutdown freezes the state, fully slashes the operator's stake, and initiates the shutdown sequence.
 
 ## Escape Hatch
 
-An escape hatch is a method of retrieving money from a system that has shut down. In Altitude, the escape hatch is trustless - users don't have to trust anyone to keep their money safe.
+An escape hatch is a method of retrieving money from a system that has shut down. In ArcPay, the escape hatch is trustless - users don't have to trust anyone to keep their money safe.
 
 ### Ownership Proofs
 
-Validiums use onchain proofs and state roots to prove that offchain computation is done correctly. Altitude's state is a Merkle tree of UTXOs. To update the state, the operator must provide a ZKP that takes the old state root, validates and applies a set of transactions, and outputs the new state.
+Validiums use onchain proofs and state roots to prove that offchain computation is done correctly. ArcPay's state is a Merkle tree of UTXOs. To update the state, the operator must provide a ZKP that takes the old state root, validates and applies a set of transactions, and outputs the new state.
 
 State roots are stored onchain and are available even if the validium shuts down. Ownership proofs are Merkle proofs for data in the UTXO tree. So the chain can verify claims like "X owned Y coins at time t."
 
@@ -58,7 +64,7 @@ If the operator is found to be in violation of their responsibilities and the va
 
 ### Upgrades
 
-The smart contracts forming Altitude are not upgradable for security reasons. However, after a notice period, the operator can move the money and state to an entirely different set of contracts. First the operator deploys the v2 contracts with no restrictions, then the operator can specify an upgrade date several months in the future along with the v2 contract address. When the upgrade date arrives, the remaining money in v1 is sent to v2 via L1, and the final state of v1 is read by v2.
+The smart contracts forming ArcPay are not upgradable for security reasons. However, after a notice period, the operator can move the money and state to an entirely different set of contracts. First the operator deploys the v2 contracts with no restrictions, then the operator can specify an upgrade date several months in the future along with the v2 contract address. When the upgrade date arrives, the remaining money in v1 is sent to v2 via L1, and the final state of v1 is read by v2.
 
 Even if an upgrade is planned, the validium can go into shutdown which cancels the upgrade. This form of upgradability doesn't require any additional vigilance by users, as they already have to check the chain monthly. It's prudent to make the minimum notice period several months to allow the new contracts to be widely audited and let people exit v1 gradually. This form of upgrades is not good for time sensitive upgrades like hotfixing vulnerabilities, as the vulnerability will probably be discovered and exploited by an attacker during the notice period.
 
@@ -79,7 +85,7 @@ If these rules are broken, the validium is shutdown and users retrieve their mon
 
 Having a centralised operator is crucial for instant transactions. To make promises about future payments, the operator needs to know the future state in advance without worrying about others altering it. However, users need to be able to send transactions permisionlessly to circumvent censorship by the operator.
 
-Some rollups implement censorship resistance by decentralising the operator, but we need a centralised operator for instant transactions and data scaling. Some rollups use privacy to make targetted censorship impossible. While privacy [may be possible](https://hackmd.io/5FJzfDgJS3OT0RmwOmbfqQ) for Altitude, it is quite complex. Instead, we rely on `force_include`. Forced transactions are "locked in" onchain for a few blocks before they're included so the operator can read them before making promises about the future state. The operator must prove they've included all forced transactions to update the state.
+Some rollups implement censorship resistance by decentralising the operator, but we need a centralised operator for instant transactions and data scaling. Some rollups use privacy to make targetted censorship impossible. While privacy [may be possible](https://hackmd.io/5FJzfDgJS3OT0RmwOmbfqQ) for ArcPay, it is quite complex. Instead, we rely on `force_include`. Forced transactions are "locked in" onchain for a few blocks before they're included so the operator can read them before making promises about the future state. The operator must prove they've included all forced transactions to update the state.
 
 <figure>
   <img src="https://i.imgur.com/wT2pNnS.jpg" alt="Diagram that resembles livestock pen illustrating how transactions are held in containers until they're included.">
