@@ -115,7 +115,6 @@ contract ArcPayTest is Test {
         arcV2.mint{value: 1}(address(this));
 
         assertEq(arcV2.operator(), operator);
-
     }
 
     function testMint() public {
