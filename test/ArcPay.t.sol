@@ -5,10 +5,13 @@ import "forge-std/Test.sol";
 import "../src/ArcPay.sol";
 
 contract ArcPayTest is Test {
-    ArcPay public alt;
+    ArcPay public arc;
 
     function setUp() public {
-        alt = new ArcPay(address(this));
+        arc = new ArcPay(address(this));
     }
 
+    function testMint() public {
+        arc.mint{value: 1}(address(1));
+    }
 }
