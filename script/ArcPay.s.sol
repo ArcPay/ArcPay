@@ -6,16 +6,16 @@ import "../src/ArcPay.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract ArcPayScript is Script {
-    address admin;
-    address proposer;
-    address executor;
-    address operator;
-    bytes32 arcSalt = "1";
-    bytes32 ownerSalt = "1";
-
     function setUp() public {}
 
     function run() public {
+        address admin = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // anvil's fourth key
+        address proposer = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // anvil's third key
+        address executor = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; // anvil's second key
+        address operator = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // anvil's first key
+        bytes32 arcSalt = "1";
+        bytes32 ownerSalt = "1";
+
         uint deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 

@@ -27,7 +27,7 @@ struct OwnershipRequest {
 }
 
 contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
-    event Mint(address receiver, uint lowCoin, uint highCoin);
+    event Mint(address receiver, uint lowCoin, uint highCoin, uint timestamp);
 
     string internal constant ERROR_MINT_EMPTY = "E0";
     string internal constant ERROR_FORCE_NO_COIN = "E1";
@@ -93,7 +93,7 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
         require(msg.value > 0, ERROR_MINT_EMPTY);
         mintHashChain = PoseidonT5.hash([uint(uint160(receiver)), maxCoin, maxCoin+msg.value-1, mintHashChain]);
         mints[mintHashChain] = block.timestamp;
-        emit Mint(receiver, maxCoin, maxCoin+msg.value);
+        emit Mint(receiver, maxCoin, maxCoin+msg.value, block.timestamp);
         maxCoin += msg.value;
         return mintHashChain;
     }
