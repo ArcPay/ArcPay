@@ -1,12 +1,11 @@
 pragma circom 2.1.5;
 
 include "./merkle_tree.circom";
-include "./sig.circom";
 include "./node_modules/circomlib/circuits/poseidon.circom";
 include "./node_modules/circomlib/circuits/comparators.circom";
 
 template Send(levels, n, k) {
-    signal input step_in; // initial_root
+    signal input initial_root;
     signal input sender;
     signal input recipient;
 
@@ -16,54 +15,27 @@ template Send(levels, n, k) {
     signal input pathIndices[levels];
 
     signal input highest_coin_to_send; // sending [leaf_coins[0], highest_coin_to_send]
-    signal input signature;
 
     signal input pathElementsForZero[levels];
     signal input pathIndicesForZero[levels];
 
-    signal input r[k];
-    signal input s[k];
-    signal input msghash[k];
-    signal input pubkey[2][k];
-
+    signal output is_transaction_valid;
     signal output new_root;
-
-    // make sure it's a send request by checking sender and recipient is non-zero
-    {
-        signal is_sender_zero <== IsZero()(in <== sender);
-        is_sender_zero === 0;
-        signal is_recipient_zero <== IsZero()(in <== recipient);
-        is_recipient_zero === 0;
-    }
-
-    // signature verification.
-    // TODO: ensure in smart contract that slashing is not done for invalid signatures.
-    signal is_sign_valid <== VerifySignature(4, n, k)(
-        r <== r,
-        s <== s,
-        msghash <== msghash,
-        pubkey <== pubkey,
-        msg <== [leaf_coins[0], leaf_coins[1], highest_coin_to_send, recipient],
-        signer <== sender
-    );
 
     // To process a transaction we:
     // - Delete the old leaf
     // - Insert 2 new leaves
     //
     // We then output the new root from the circuit
-    signal is_transition_valid <== Validate(levels)(
+    is_transaction_valid <== Validate(levels)(
         initial_root <== initial_root,
         highest_coin_to_send <== highest_coin_to_send,
-        signature <== signature,
         sender <== sender,
         owner <== owner,
         leaf_coins <== leaf_coins,
         pathElements <== pathElements,
         pathIndices <== pathIndices
     );
-
-    signal is_transaction_valid <== is_sign_valid * is_transition_valid;
 
     // determine the new leaf corresponding to sender.
     // If sending all coins, we replace it with 0; otherwise we replace it with the remaining coins.
@@ -167,20 +139,3 @@ template CoinRangeContains() {
 
     is_low * is_high === 1;
 }
-
-// Assumes boolean inputs
-/*
-template MultiAND(n) {
-    signal input in[n];
-    signal output out;
-
-    var sum = 0;
-    for (var i = 0; i < n; i++) {
-        sum += in[i];
-    }
-
-    out <== IsEqual()(in <== [sum, n]);
-}
-*/
-
-component main { public [step_in] } = Send(3, 64, 4);

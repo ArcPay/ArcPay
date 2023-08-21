@@ -29,8 +29,8 @@ template Withdraw(levels) {
     signal input recipient;
     signal input amount;
 
-    signal input pathElements[levels];
-    signal input pathIndices[levels];
+    signal input withdrawalPathElements[levels];
+    signal input withdrawalPathIndices[levels];
 
     signal input bit_chain;
     signal input root;
@@ -43,21 +43,21 @@ template Withdraw(levels) {
     signal output new_valid_withdrawal_count;
 
     // Calculate what the outputs would be if it's a withdrawal
-    signal calculated_bit_chain <== Poseidon(bit_chain, is_valid_transaction);
+    signal calculated_bit_chain <== Poseidon(2)(inputs <== [bit_chain, is_valid_transaction]);
     signal updated_root <== UpdateLeaf(levels)(
         old_leaf <== 0,
-        new_leaf <== Poseidon(recipient, amount);
-        pathElements <== pathElements,
-        pathIndices <== pathIndices,
-        old_root <== root,
+        new_leaf <== Poseidon(2)(inputs <== [recipient, amount]),
+        pathElements <== withdrawalPathElements,
+        pathIndices <== withdrawalPathIndices,
+        old_root <== root
     );
     signal calculated_root <== (updated_root - root) * is_valid_transaction + root;
     signal calculated_total_amount <== total_amount + amount;
     signal calculated_valid_withdrawal_count <== valid_withdrawal_count + is_valid_transaction;
 
     // Only update the outputs if it's a withdrawal
-    signal (calculated_bit_chain - bit_chain) * is withdrawal + bit_chain;
-    signal (calculated_root - root) * is withdrawal + root;
-    signal (calculated_total_amount - total_amount) * is withdrawal + total_amount;
-    signal (calculated_valid_withdrawal_count - valid_withdrawal_count) * is withdrawal + valid_withdrawal_count;
+    new_bit_chain <== (calculated_bit_chain - bit_chain) * is_withdrawal + bit_chain;
+    new_root <== (calculated_root - root) * is_withdrawal + root;
+    new_total_amount <== (calculated_total_amount - total_amount) * is_withdrawal + total_amount;
+    new_valid_withdrawal_count <== (calculated_valid_withdrawal_count - valid_withdrawal_count) * is_withdrawal + valid_withdrawal_count;
 }
