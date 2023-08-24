@@ -52,7 +52,7 @@ template Withdraw(levels) {
         old_root <== root
     );
     signal calculated_root <== (updated_root - root) * is_valid_transaction + root;
-    signal calculated_total_amount <== total_amount + amount;
+    signal calculated_total_amount <== total_amount + (amount * is_valid_transaction);
     signal calculated_valid_withdrawal_count <== valid_withdrawal_count + is_valid_transaction;
 
     // Only update the outputs if it's a withdrawal
