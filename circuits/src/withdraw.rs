@@ -83,17 +83,17 @@ pub fn nova(iteration_count: usize) {
         pp.num_variables().1
     );
 
-    println!("Creating a RecursiveSNARK...");
-    let start = Instant::now();
-    let recursive_snark = create_recursive_circuit(
-        FileLocation::PathBuf(witness_generator_wasm),
-        r1cs,
-        private_inputs,
-        start_public_input.clone(),
-        &pp,
-    )
-    .unwrap();
-    println!("RecursiveSNARK creation took {:?}", start.elapsed());
+    for n in 0..50 {
+        println!("Creating a RecursiveSNARK {:?}...", n);
+        let w = witness_generator_wasm.clone();
+        let r = r1cs.clone();
+        let p = private_inputs.clone();
+        let public = start_public_input.clone();
+        let start = Instant::now();
+        // let recursive_snark =
+        create_recursive_circuit(FileLocation::PathBuf(w), r, p, public, &pp).unwrap();
+        println!("RecursiveSNARK creation took {:?}", start.elapsed());
+    }
 
     // TODO: empty?
     let z0_secondary = vec![<G2 as Group>::Scalar::zero()];
