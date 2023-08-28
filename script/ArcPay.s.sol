@@ -9,17 +9,18 @@ contract ArcPayScript is Script {
     function setUp() public {}
 
     function run() public {
-        address admin = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // anvil's fourth key
-        address proposer = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // anvil's third key
-        address executor = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; // anvil's second key
-        address operator = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // anvil's first key
+        // demo: set these to a single address you control
+        address admin = 0xE9b86768323E26A516Ec0DF9Fd123347b236AEF5; // anvil's fourth key
+        address proposer = 0xE9b86768323E26A516Ec0DF9Fd123347b236AEF5; // anvil's third key
+        address executor = 0xE9b86768323E26A516Ec0DF9Fd123347b236AEF5; // anvil's second key
+        address operator = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
         bytes32 arcSalt = "1";
         bytes32 ownerSalt = "1";
 
         uint deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        ArcPay arcImpl = new ArcPay{salt: arcSalt}();
+        ArcPay arcImpl = new ArcPay/*{salt: arcSalt}*/();
         console2.log("arcImpl", address(arcImpl));
 
         address[] memory proposers = new address[](1);
@@ -31,7 +32,7 @@ contract ArcPayScript is Script {
         console2.log("arcOwner", address(arcOwner));
 
         ArcPay arcProxy = ArcPay(payable(address(
-            new ERC1967Proxy{salt : ownerSalt}(
+            new ERC1967Proxy/*{salt : ownerSalt}*/(
                 address(arcImpl),
                 abi.encodeCall(ArcPay.initialize, (arcOwner, operator))
         ))));
