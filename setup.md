@@ -16,13 +16,13 @@ To run and test smart contracts:
 - forge test
 
 ### Deploy on Sepolia
-Update `ArcPay.s.sol` with EOA addresses you control. Set its private key in `.env` file:
+Update `ArcPay.s.sol` with EOA addresses you control. Set its private key in a new `.env` file in the root of the repo:
 ```
 PRIVATE_KEY=0xaaaaa....
 ```
 Then deploy and verify on etherscan:
 ```
-forge script script/ArcPay.s.sol:ArcPayScript --sig "run()" --rpc-url https://eth-sepolia.g.alchemy.com/v2/yipjt54dKB92Mr9fkL5BXfLA_YccItyU --broadcast --verify --etherscan-api-key CUBCRAG4SH42MRRZVQI9V5KIQ8WNHJ2QEF --chain 11155111
+forge script script/ArcPay.s.sol:ArcPayScript --sig "run()" --rpc-url https://eth-sepolia.g.alchemy.com/v2/yipjt54dKB92Mr9fkL5BXfLA_YccItyU --broadcast --verify --etherscan-api-key CUBCRAG4SH42MRRZVQI9V5KIQ8WNHJ2QEF --chain-id 11155111
 ```
 
 ## Circuits

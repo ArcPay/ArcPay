@@ -51,7 +51,7 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     uint public mintHashChain;
     uint provedMintTimeStamp = 0;
-    mapping(uint mintHash => uint timestamp) mints;
+    mapping(uint => uint) mints; // minthash => timestamp
 
     uint[] public stateHistory;
     uint public stateRoot;
