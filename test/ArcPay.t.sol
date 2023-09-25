@@ -112,12 +112,12 @@ contract ArcPayTest is Test {
         arcV2 = ArcPayV2(payable(address(arcProxy)));
         assertTrue(arcV2.v2());
 
-        arcV2.mint{value: 1}(address(this));
+        arcV2.mint{value: 1 ether}(address(this));
 
         assertEq(arcV2.operator(), operator);
     }
 
     function testMint() public {
-        arc.mint{value: 1}(address(1));
+        arc.mint{value: 1 ether}(address(1));
     }
 }
