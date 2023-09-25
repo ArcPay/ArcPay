@@ -90,11 +90,13 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     function mint(address receiver) external payable returns (uint) {
-        require(msg.value > 0, ERROR_MINT_EMPTY);
-        mintHashChain = PoseidonT5.hash([uint(uint160(receiver)), maxCoin, maxCoin+msg.value-1, mintHashChain]);
+        // the caller should only send huge values in terms of Wei.
+        uint msgValue = msg.value / uint(10**11);
+        require(msgValue > 0, ERROR_MINT_EMPTY);
+        mintHashChain = PoseidonT5.hash([uint(uint160(receiver)), maxCoin, maxCoin+msgValue-1, mintHashChain]);
         mints[mintHashChain] = block.timestamp;
-        emit Mint(receiver, maxCoin, maxCoin+msg.value, block.timestamp);
-        maxCoin += msg.value;
+        emit Mint(receiver, maxCoin, maxCoin+msgValue, block.timestamp);
+        maxCoin += msgValue;
         return mintHashChain;
     }
 
@@ -175,4 +177,3 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
     // any eth sent is part of the slashable stake
     receive() external payable {}
 }
-
