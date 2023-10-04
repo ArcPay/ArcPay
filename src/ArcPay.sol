@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.19;
 
 import {Ownable2StepUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {Initializable} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -51,7 +51,7 @@ contract ArcPay is Initializable, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     uint public mintHashChain;
     uint provedMintTimeStamp = 0;
-    mapping(uint mintHash => uint timestamp) mints;
+    mapping(uint minthash => uint timestamp) mints;
 
     uint[] public stateHistory;
     uint public stateRoot;
