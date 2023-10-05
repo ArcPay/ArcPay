@@ -2,6 +2,8 @@ pragma circom 2.1.5;
 
 include "./git_modules/circom-ecdsa/circuits/ecdsa.circom";
 include "./git_modules/circom-ecdsa/circuits/zk-identity/eth.circom";
+include "./node_modules/circomlib/circuits/gates.circom";
+include "./node_modules/circomlib/circuits/comparators.circom";
 
 // TODO: do we need to check that all registers of r,s fit in n bits?
 // Note: The n-bit check is done for pubkey in FlattenPubkey circuit.
@@ -10,9 +12,9 @@ template VerifySignature(hashIns, n, k) {
     signal input s[k];
     signal input msghash[k];
     signal input pubkey[2][k];
+    signal input signer;
 
     signal input msg[hashIns];
-    signal input signer;
 
     signal output is_valid;
 
@@ -31,20 +33,17 @@ template VerifySignature(hashIns, n, k) {
         cumulativeM === msghash_computed;
     }
 
-    signal result <== ECDSAVerifyNoPubkeyCheck(n,k)(
+    signal is_valid_signature <== ECDSAVerifyNoPubkeyCheck(n,k)(
         r <== r,
         s <== s,
         msghash <== msghash,
         pubkey <== pubkey
     );
 
-    // result === 1;
-
-    signal signer_computed <== PubkeyToAddress()(
+    signal actual_signer <== PubkeyToAddress()(
         pubkeyBits <== FlattenPubkey(n, k)(chunkedPubkey <== pubkey)
     );
 
-    signal is_signer_valid <== IsZero()(in <== signer_computed - signer);
-
-    is_valid <== result * is_signer_valid;
+    signal puported_signer_is_signer <== IsEqual()(inputs <== [signer, actual_signer]);
+    is_valid <== AND()(a <== is_valid_signature, b <== puported_signer_is_signer);
 }
